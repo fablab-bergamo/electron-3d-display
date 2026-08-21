@@ -1,0 +1,63 @@
+name: Deploy GitHub Pages
+
+# web/index.html fetches its shared model files straight from micropython/
+# and pc/ at runtime (see web/index.html's PY_FILES list) -- there is no
+# separate "web build" of those files to compile, only an assembly step:
+# copy web/, micropython/, and pc/ into one publish directory so the site's
+# relative fetch("../micropython/...")/fetch("../pc/...") calls resolve
+# exactly as they do when served locally from the repo root.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'micropython/**'
+      - 'pc/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          set -e
+          rm -rf _site
+          mkdir -p _site
+          cp -r web _site/web
+          cp -r micropython _site/micropython
+          cp -r pc _site/pc
+          # Root redirect so the bare Pages URL lands on the demo instead
+          # of a 404 -- the demo's real entry point is web/index.html.
+          {
+            echo '<!DOCTYPE html>'
+            echo '<html><head><meta charset="utf-8">'
+            echo '<meta http-equiv="refresh" content="0; url=web/index.html">'
+            echo '<title>Atom Orbital Viewer</title></head>'
+            echo '<body><p><a href="web/index.html">Open the atom/orbital viewer</a></p></body></html>'
+          } > _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

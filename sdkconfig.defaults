@@ -1,0 +1,20 @@
+# Waveshare ESP32-S3-LCD-1.3 has 16 MB external flash (see boards/WS-ESP32-S3-LCD-1-3.json).
+# The espidf framework doesn't read the board manifest's Arduino-only "partitions" key,
+# so flash size and partition table need to be pinned here explicitly.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8096
+
+# Performance tuning found via menuconfig (see boards/ST7789VW_ESP32S3.pdf review):
+# stock idf.py defaults were leaving CPU clock, build optimization, PSRAM speed, and
+# FreeRTOS tick rate all below what the ESP32-S3 and this board's octal PSRAM support.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=240
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_SPIRAM_SPEED_80M=y
+# Was 100Hz (10ms tick), which silently turned every per-frame vTaskDelay(pdMS_TO_TICKS(1))
+# in the render loops (e.g. atom_view.cpp) into a 10ms sleep -- a third of the frame
+# budget at 30 FPS. 500Hz (2ms tick) shrinks that to 2ms; still not literally 1ms.
+CONFIG_FREERTOS_HZ=500
