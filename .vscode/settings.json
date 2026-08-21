@@ -1,0 +1,14 @@
+{
+  "files.associations": {
+    "*.ino": "cpp"
+  },
+  "C_Cpp.intelliSenseEngine": "default",
+  "platformio-ide.useBuiltinPIOCore": true,
+  "editor.formatOnSave": true,
+  "cmake.configureOnOpen": false,
+  "cmake.configureOnEdit": false,
+  "files.watcherExclude": {
+    "**/.ccache": true,
+    "**/.pio": true
+  }
+}
