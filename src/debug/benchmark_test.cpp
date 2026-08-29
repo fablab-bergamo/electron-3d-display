@@ -16,6 +16,7 @@
 #include "freertos/task.h"
 #include "render/overlay.h"
 #include "physics/slater.h"
+#include "sdkconfig.h" // CONFIG_IDF_TARGET_ESP32
 
 static const char *kBenchmarkTag = "benchmark";
 
@@ -35,12 +36,29 @@ static constexpr int kBenchAtomicNumber = 26; // Fe
 /// actually shows on boot, not a cherry-picked shape.
 static constexpr int kBenchOrbitalPreset = kOrbitalDefaultPresetIndex;
 
-/// Point counts swept, ascending, for both the atom and orbital sweeps. kAtomNumPoints ==
-/// kOrbitalNumPoints (config/visual_constants.h) is the real production count both live
-/// viewers use, so it's the ceiling here too -- also sizes the static point buffers below, no
-/// reallocation between steps.
+/// Point counts swept, ascending, for both the atom and orbital sweeps. On the S3,
+/// kAtomNumPoints == kOrbitalNumPoints (config/visual_constants.h) is the real production
+/// count both live viewers use, so it's the ceiling here too -- also sizes the static point
+/// buffers below, no reallocation between steps. On CYD (no PSRAM) the two ceilings differ
+/// and are both far smaller (kAtomNumPoints=1000, kOrbitalNumPoints=3400) -- since this same
+/// array drives both sweeps, it must stay <= the SMALLER of the two (1000) or the atom sweep
+/// would write past the end of the static atomPoints[] buffer below.
+#if CONFIG_IDF_TARGET_ESP32
+static constexpr int kBenchPointCounts[] = {200, 400, 600, 800, 1000};
+#else
 static constexpr int kBenchPointCounts[] = {500, 1000, 2000, 4000, 8000};
+#endif
 static constexpr int kBenchNumSteps = int(sizeof(kBenchPointCounts) / sizeof(kBenchPointCounts[0]));
+
+/// Ceiling for sizing the sweep's own static point/scratch buffers below -- the largest step
+/// actually swept (last element, ascending), NOT kAtomNumPoints/kOrbitalNumPoints. On the S3
+/// these are equal (8000 either way). On CYD they'd overshoot: sizing to kOrbitalNumPoints=3400
+/// plus this file's extra orbital scratch arrays (psi2/signs/levels/psi2Sorted -- none of which
+/// OrbitalPresetState needs) adds ~34KB of internal-SRAM BSS beyond what normal boot's own view
+/// state already uses, on a board with no PSRAM fallback -- confirmed on hardware to fragment
+/// internal SRAM enough that Display::Display()'s 240x320 DMA frame-buffer allocation fails
+/// outright (abort() at boot, even at the allocator's smallest 1-row/block retry).
+static constexpr int kBenchMaxPoints = kBenchPointCounts[kBenchNumSteps - 1];
 
 static constexpr uint32_t kBenchSeed = kAtomCloudSeed; // same seed atom_view.cpp uses -- reproducible sweep
 
@@ -111,10 +129,10 @@ namespace
             display.waitForFlushDone(); // previous frame's DMA must finish before frameBuf is overwritten
             int64_t tAfterWait = esp_timer_get_time();
 
-            renderSceneGrouped(display.getFrameBuf(), points, groups, groupCount, kProtonColor, camera,
-                               stats.baseScale, uint32_t(f), kHiddenPointsThreshold);
-            drawText(display.getFrameBuf(), kTitleTextX, kTitleTextY, titleText, kTextColor, kFontLarge);
-            drawScaleBar(display.getFrameBuf(), stats.baseScale / kPmPerBohr, "pm", kScaleBarColor, kTextColor);
+            renderSceneGrouped(display, points, groups, groupCount, kProtonColor, camera, stats.baseScale,
+                               uint32_t(f), kHiddenPointsThreshold);
+            drawText(display, kTitleTextX, kTitleTextY, titleText, kTextColor, kFontLarge);
+            drawScaleBar(display, stats.baseScale / kPmPerBohr, "pm", kScaleBarColor, kTextColor);
 
             display.presentFrame();
             int64_t tAfterPresent = esp_timer_get_time();
@@ -182,14 +200,14 @@ namespace
             display.waitForFlushDone(); // previous frame's DMA must finish before frameBuf is overwritten
             int64_t tAfterWait = esp_timer_get_time();
 
-            renderScene(display.getFrameBuf(), points, colors, count, kProtonColor, camera, scale.baseScale,
-                       uint32_t(f), kHiddenPointsThreshold);
-            drawProtonMarker(display.getFrameBuf(), kProtonColor, kOrbitalProtonMarkerSize);
-            drawText(display.getFrameBuf(), kTitleTextX, kTitleTextY, d.label, kTextColor, kFontHuge);
+            renderScene(display, points, colors, count, kProtonColor, camera, scale.baseScale, uint32_t(f),
+                       kHiddenPointsThreshold);
+            drawProtonMarker(display, kProtonColor, kOrbitalProtonMarkerSize);
+            drawText(display, kTitleTextX, kTitleTextY, d.label, kTextColor, kFontHuge);
             int width = textWidth(orbitalNumbers, kFontLarge);
-            drawText(display.getFrameBuf(), Display::kDisplayWidth - width,
+            drawText(display, Display::kDisplayWidth - width,
                     Display::kDisplayHeight - kFontLarge.height - 15, orbitalNumbers, kTextColor, kFontLarge);
-            drawScaleBar(display.getFrameBuf(), scale.baseScale / kPmPerBohr, "pm", kScaleBarColor, kTextColor);
+            drawScaleBar(display, scale.baseScale / kPmPerBohr, "pm", kScaleBarColor, kTextColor);
 
             display.presentFrame();
             int64_t tAfterPresent = esp_timer_get_time();
@@ -278,18 +296,19 @@ void runBenchmarkTest(Display &display)
     // EXT_RAM_BSS_ATTR -- PSRAM, not internal RAM: same reasoning as atom_view.cpp's
     // AtomPresetState (a same-order-of-magnitude points buffer), which aborted at boot when
     // placed in internal RAM because it left too little contiguous space for Display::
-    // Display()'s own DMA-capable frame-buffer allocation.
-    static EXT_RAM_BSS_ATTR AtomPoint atomPoints[kAtomNumPoints];
+    // Display()'s own DMA-capable frame-buffer allocation. Sized to kBenchMaxPoints (the
+    // sweep's own largest step), not kAtomNumPoints -- see that constant's doc comment.
+    static EXT_RAM_BSS_ATTR AtomPoint atomPoints[kBenchMaxPoints];
     static PointGroup atomGroups[kMaxConfigSubshells]; // tiny (<=20 entries) -- no PSRAM need
 
-    // Orbital sweep's own buffers, same PSRAM reasoning -- OrbitalPresetState (orbital_view.h)
-    // places its equivalents in PSRAM for the same reason.
-    static EXT_RAM_BSS_ATTR OrbitalPoint orbitalPoints[kOrbitalNumPoints];
-    static EXT_RAM_BSS_ATTR uint16_t orbitalColors[kOrbitalNumPoints];
-    static EXT_RAM_BSS_ATTR orb_real_t orbitalPsi2[kOrbitalNumPoints];      // scratch, see runOrbitalStep()
-    static EXT_RAM_BSS_ATTR int8_t orbitalSigns[kOrbitalNumPoints];        // scratch
-    static EXT_RAM_BSS_ATTR uint8_t orbitalLevels[kOrbitalNumPoints];      // scratch
-    static EXT_RAM_BSS_ATTR orb_real_t orbitalPsi2Sorted[kOrbitalNumPoints]; // scratch
+    // Orbital sweep's own buffers, same PSRAM/kBenchMaxPoints reasoning -- OrbitalPresetState
+    // (orbital_view.h) places its equivalents in PSRAM for the same reason.
+    static EXT_RAM_BSS_ATTR OrbitalPoint orbitalPoints[kBenchMaxPoints];
+    static EXT_RAM_BSS_ATTR uint16_t orbitalColors[kBenchMaxPoints];
+    static EXT_RAM_BSS_ATTR orb_real_t orbitalPsi2[kBenchMaxPoints];      // scratch, see runOrbitalStep()
+    static EXT_RAM_BSS_ATTR int8_t orbitalSigns[kBenchMaxPoints];        // scratch
+    static EXT_RAM_BSS_ATTR uint8_t orbitalLevels[kBenchMaxPoints];      // scratch
+    static EXT_RAM_BSS_ATTR orb_real_t orbitalPsi2Sorted[kBenchMaxPoints]; // scratch
 
     CameraState camera;
 

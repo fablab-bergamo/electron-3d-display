@@ -12,67 +12,33 @@
     color: #e8e8e8;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  body {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    box-sizing: border-box;
-  }
   #wrap {
-    width: 100%;
-    max-width: 480px;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 12px 12px 20px;
     box-sizing: border-box;
-    background: #111116;
-    border: 1px solid #232329;
-    border-radius: 14px;
-    padding: 16px 16px 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-  }
-  header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 12px;
   }
   h1 {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    margin: 0 0 3px;
-    color: #f0f0f0;
+    margin: 0 0 2px;
+    color: #ccc;
   }
-  #subtitle {
-    font-size: 11.5px;
-    color: #888;
-    margin: 0;
-  }
-  #fablab-link {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+  #repo-link {
+    display: inline-block;
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: #9ad1ff;
+    color: #888;
     text-decoration: none;
-    border: 1px solid #2a3a4a;
-    background: #12202c;
-    border-radius: 999px;
-    padding: 5px 10px 5px 8px;
-    white-space: nowrap;
+    margin: 0 0 8px;
   }
-  #fablab-link:hover { background: #16283a; color: #bfe1ff; }
+  #repo-link:hover { color: #bbb; text-decoration: underline; }
   #stage {
     position: relative;
     width: 100%;
     aspect-ratio: 1 / 1;
     background: #000;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
-    border: 1px solid #1c1c22;
   }
   canvas#view {
     display: block;
@@ -94,18 +60,20 @@
   }
   #status.hidden { display: none; }
   #status.error { color: #ff8080; }
-  .control-group {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    margin-top: 8px;
+    margin-top: 10px;
   }
   button {
+    flex: 1 1 auto;
+    min-width: 64px;
     background: #1c1c22;
     color: #eee;
     border: 1px solid #33333c;
     border-radius: 5px;
-    padding: 9px 8px;
+    padding: 8px 10px;
     font-size: 13px;
     cursor: pointer;
   }
@@ -121,50 +89,31 @@
     border-color: #4a3333;
   }
   #hint {
-    margin-top: 10px;
+    margin-top: 8px;
     font-size: 11px;
     color: #777;
     line-height: 1.5;
     min-height: 2.7em;
   }
-  footer {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #1c1c22;
-    font-size: 11px;
-    color: #666;
-  }
-  footer a { color: #888; text-decoration: none; }
-  footer a:hover { color: #aaa; text-decoration: underline; }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <header>
-    <div>
-      <h1>Atom Orbital Viewer</h1>
-      <p id="subtitle">Interactive electron-density explorer, running Python in your browser</p>
-    </div>
-    <a id="fablab-link" href="https://github.com/fablab-bergamo" target="_blank" rel="noopener">FabLab Bergamo &#8599;</a>
-  </header>
+  <h1>Atom Orbital Viewer</h1>
+  <a id="repo-link" href="https://github.com/PBrunot/electron-3d-display#readme" target="_blank" rel="noopener">github.com/PBrunot/electron-3d-display &#8599;</a>
   <div id="stage">
     <canvas id="view"></canvas>
     <div id="status">Loading physics engine&hellip; (first load can take 10&ndash;20s)</div>
   </div>
-  <div class="control-group">
+  <div id="controls">
     <button id="btn-back" title="Back to menu (Esc)">&#9664;&#9664; Back</button>
     <button id="btn-prev" title="Previous">&#9664; Prev</button>
     <button id="btn-next" title="Next">Next &#9654;</button>
-  </div>
-  <div class="control-group">
     <button id="btn-zoom-out" title="Zoom out">&minus; Zoom</button>
     <button id="btn-zoom-in" title="Zoom in">+ Zoom</button>
     <button id="btn-dissect" title="Dissect electron shells">Dissect</button>
   </div>
   <div id="hint"></div>
-  <footer>
-    Source on <a href="https://github.com/fablab-bergamo/electron-3d-display#readme" target="_blank" rel="noopener">github.com/fablab-bergamo/electron-3d-display</a>
-  </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.js"></script>

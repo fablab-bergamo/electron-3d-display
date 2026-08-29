@@ -13,7 +13,8 @@ that file's header comment for the full rationale.
    ```c
    #define BENCHMARK_TEST
    ```
-2. Build and flash:
+2. Build and flash (`-e CYD` also works -- see the "CYD" section below for that board's own,
+   smaller point-count range and why):
    ```
    pio run -e WS_ESP32_S3_LCD_1_3 -t upload
    ```
@@ -29,12 +30,18 @@ that file's header comment for the full rationale.
 The sweep takes ~16-18 seconds total (5 point-count steps x 60 frames each x 2 sweeps, plus
 point-cloud build time per step) and needs no IMU/tilt setup or user interaction.
 
-## Expected results (baseline: 2026-08-20, ESP32-S3 @ 240MHz, SPI 40MHz, this hardware unit)
+## Expected results (baseline: 2026-08-22, ESP32-S3 @ 240MHz, SPI 80MHz, this hardware unit)
 
-Captured after the atom/orbital split and the `iram_free` column were added -- this is the
-first baseline with both sweeps. `avg_wait_ms` isn't printed by the summary table below (see
-the raw `BENCH,STEP` line for it) but stayed flat at ~12-14ms across every row of both sweeps,
-as expected for a fixed-size SPI DMA transfer.
+Re-captured after merging CYD (ESP32-2432S028R) hardware support (`CYD-test` branch): the
+`Display` frame buffer went from a single flat array + per-frame software Y-flip to a
+block-based allocator with per-pixel `writePx()`/`readPx()` accessors (needed for the CYD's
+fragmented, non-PSRAM heap), and every render/font/overlay call site was converted from raw
+`uint16_t* frameBuf` to `Display&`. That touches the S3's hot render path too, so this rerun
+is also the regression check for that refactor against the previous (2026-08-20) baseline below
+-- verdict: **no regression**, every row is flat-to-slightly-faster than 2026-08-20, and
+`iram_free`/the physical-correctness tables below are unchanged. `avg_wait_ms` isn't printed by
+the summary table below (see the raw `BENCH,STEP` line for it) but stayed flat at ~11-13ms
+across every row of both sweeps, as expected for a fixed-size SPI DMA transfer.
 
 ### Performance (`BENCH,STEP`)
 
@@ -42,26 +49,34 @@ as expected for a fixed-size SPI DMA transfer.
 
 | points | build_ms | avg_render_ms | min_render_ms | max_render_ms | fps  | iram_free |
 |-------:|---------:|---------------:|---------------:|---------------:|-----:|----------:|
-|    500 |      265 |          10.159 |          10.152 |          10.243 | 42.09 |    216687 |
-|   1000 |       20 |          10.617 |          10.610 |          10.689 | 42.04 |    216687 |
-|   2000 |       24 |          11.539 |          11.530 |          11.622 | 41.97 |    216687 |
-|   4000 |       33 |          13.943 |          13.936 |          14.012 | 36.00 |    216687 |
-|   8000 |       50 |          18.149 |          18.141 |          18.215 | 31.48 |    216687 |
+|    500 |      265 |           9.484 |           9.476 |           9.573 | 45.89 |    216687 |
+|   1000 |       20 |           9.963 |           9.955 |          10.050 | 45.88 |    216687 |
+|   2000 |       24 |          10.926 |          10.914 |          11.031 | 42.08 |    216687 |
+|   4000 |       33 |          13.420 |          13.410 |          13.507 | 38.79 |    216687 |
+|   8000 |       50 |          17.806 |          17.794 |          17.886 | 33.56 |    216687 |
 
 **Orbital sweep (2pz, `kOrbitalDefaultPresetIndex`):**
 
 | points | build_ms | avg_render_ms | min_render_ms | max_render_ms | fps  | iram_free |
 |-------:|---------:|---------------:|---------------:|---------------:|-----:|----------:|
-|    500 |      105 |          10.476 |          10.470 |          10.581 | 42.06 |    216387 |
-|   1000 |       99 |          10.967 |          10.959 |          11.099 | 42.02 |    216387 |
-|   2000 |      114 |          11.980 |          11.969 |          12.101 | 38.80 |    216387 |
-|   4000 |      145 |          14.580 |          14.573 |          14.666 | 35.97 |    216387 |
-|   8000 |      214 |          19.139 |          19.130 |          19.234 | 31.44 |    216387 |
+|    500 |      105 |           9.850 |           9.844 |           9.972 | 45.87 |    216387 |
+|   1000 |       99 |          10.403 |          10.397 |          10.532 | 45.79 |    216387 |
+|   2000 |      114 |          11.520 |          11.506 |          11.652 | 42.00 |    216387 |
+|   4000 |      145 |          14.342 |          14.335 |          14.431 | 38.75 |    216387 |
+|   8000 |      214 |          19.328 |          19.319 |          19.441 | 31.47 |    216387 |
 
 (500-point atom `build_ms` of 265 is a one-off: the very first sweep step, before Fe's
 subshell rejection-sampling has "warmed up" any branch prediction/caches -- every later atom
 step, and the whole orbital sweep, doesn't show it. Not a regression signal by itself; watch
-whether it recurs at 500 points specifically across runs.)
+whether it recurs at 500 points specifically across runs. Unchanged from the prior baseline,
+as expected -- this is startup-order noise, not something the `Display` refactor touches.)
+
+Previous baseline (2026-08-20, same SPI 80MHz -- superseded by the table above, kept for delta
+reference): atom @8000pts 18.149ms/31.48fps, orbital @8000pts 19.139ms/31.44fps; see git
+history of this file for the full prior tables. (That 2026-08-20 entry's header mislabeled
+this as "SPI 40MHz" -- `display.cpp`'s `LCD_PIXEL_CLOCK_HZ` for the S3 target has been
+80MHz all along, unchanged by the CYD port; the CYD's own ILI9341 path runs at 40MHz, a
+separate `#define` block -- see that file.)
 
 Notes:
 - **8000 points is the production count** (`kAtomNumPoints` == `kOrbitalNumPoints`, what
@@ -161,3 +176,345 @@ Notes:
   sampling for 4s, not just noise.
 - `base_scale_px` = `kAtomTargetPx / outer_rref_bohr` (`atom_cloud.h`), so it moves inversely
   with `outer_rref_bohr` -- expect ~12.0-12.5px across all rows.
+
+## CYD (ESP32-2432S028R, no PSRAM, ILI9341 240x320)
+
+Captured 2026-08-28 on real CYD hardware (`pio run -e CYD -t upload`, `BENCHMARK_TEST` toggle
+in `main.cpp`), same methodology as the S3 sweep above (`src/debug/benchmark_test.cpp`, same
+fixed Fe/2pz targets, same seed) but with two changes required to even boot on this board,
+both now baked into `benchmark_test.cpp` itself rather than being one-off hacks for this
+capture:
+
+1. **Point-count sweep capped at 1000, not 500-8000.** CYD's `kAtomNumPoints`/
+   `kOrbitalNumPoints` (`config/visual_constants.h`) are 1000/3400, not the S3's 12000/12000
+   -- no PSRAM to hold a bigger cloud. `kBenchPointCounts` is now branched on
+   `CONFIG_IDF_TARGET_ESP32`: `{200, 400, 600, 800, 1000}` on CYD (the smaller of the two
+   ceilings, since one array drives both the atom and orbital sweep loops), unchanged
+   `{500, 1000, 2000, 4000, 8000}` on the S3. Sweeping the S3's range unmodified on CYD would
+   have written past the end of the sweep's own static `atomPoints[]` buffer (sized to the
+   swept range, see next point) -- an out-of-bounds write, not just a slow run.
+2. **Swept buffers sized to the sweep's own max, not to `kAtomNumPoints`/`kOrbitalNumPoints`.**
+   The first attempt at this capture (still sized to the production constants, before point 1
+   above too) crashed at boot -- `Display::Display()`'s 240x320 DMA frame-buffer allocation
+   failed even at its smallest 1-row/block retry:
+   ```
+   E (546) display: failed to allocate frame buffer (even at 1 row/block)
+   abort() was called at PC 0x400d5d25 on core 0
+   ```
+   Cause: the sweep's own static scratch (`orbitalPsi2`/`orbitalSigns`/`orbitalLevels`/
+   `orbitalPsi2Sorted`, none of which the production `OrbitalPresetState` needs) sized to
+   `kOrbitalNumPoints`=3400 added ~34KB of internal-SRAM BSS on top of what normal boot's own
+   view state already uses on a board with no PSRAM fallback to absorb it -- enough to
+   fragment internal SRAM past the point the block allocator could find contiguous DMA-capable
+   space, at any block size. Fixed by introducing `kBenchMaxPoints` (the sweep's own largest
+   step, from point 1 -- 1000 on CYD, 8000 on the S3, so no behavior change there) and sizing
+   every static buffer in `runBenchmarkTest()` to that instead of the production constants.
+   After the fix, the full sweep ran end-to-end with no crash and flat `iram_free` throughout
+   (see table below) -- confirmed as the actual fix, not just a plausible-sounding one.
+
+Re-run this capture (and re-check both points above still hold) after: changing
+`kBenchPointCounts`, changing `kAtomNumPoints`/`kOrbitalNumPoints` for CYD, or adding any new
+static scratch buffer to `runBenchmarkTest()`.
+
+### Performance (`BENCH,STEP`)
+
+**Atom sweep (Fe, Z=26):**
+
+| points | build_ms | avg_render_ms | min_render_ms | max_render_ms | fps   | iram_free |
+|-------:|---------:|---------------:|---------------:|---------------:|------:|----------:|
+|    200 |       97 |          36.366 |          36.342 |          37.032 | 20.91 |    101364 |
+|    400 |       22 |          36.580 |          36.566 |          37.025 | 20.91 |    101364 |
+|    600 |       23 |          36.805 |          36.794 |          37.280 | 20.91 |    101364 |
+|    800 |       24 |          37.025 |          37.013 |          37.519 | 20.90 |    101364 |
+|   1000 |       25 |          37.232 |          37.215 |          37.765 | 20.91 |    101364 |
+
+**Orbital sweep (2pz, `kOrbitalDefaultPresetIndex`):**
+
+| points | build_ms | avg_render_ms | min_render_ms | max_render_ms | fps   | iram_free |
+|-------:|---------:|---------------:|---------------:|---------------:|------:|----------:|
+|    200 |       30 |          36.726 |          36.713 |          37.397 | 20.91 |    101056 |
+|    400 |       50 |          36.963 |          36.951 |          37.440 | 20.90 |    101056 |
+|    600 |       60 |          37.212 |          37.202 |          37.663 | 20.90 |    101056 |
+|    800 |       69 |          37.452 |          37.439 |          37.934 | 20.91 |    101056 |
+|   1000 |       78 |          37.700 |          37.686 |          38.150 | 20.90 |    101056 |
+
+(200-point atom `build_ms` of 97 is the same kind of one-off first-step warmup artifact the S3
+table's 500-point row shows, just at a different point count since CYD's sweep starts lower --
+not a regression signal by itself.)
+
+Notes:
+- **1000 points is the production atom count on this board** (`kAtomNumPoints`); the orbital
+  view's production count is 3400 (`kOrbitalNumPoints`), higher than this sweep's 1000-point
+  ceiling (capped to the smaller of the two ceilings, see above) -- so the 1000-point orbital
+  row here is a lower bound on real orbital cost, not the exact production figure.
+- **fps is essentially flat (~20.9) across the whole swept range**, unlike the S3 table where
+  fps visibly drops as point count grows. Two compounding reasons: CYD's frame is 33% more
+  pixels (240x320=76800 vs the S3's 240x240=57600), and its SPI clock is half the S3's (40MHz
+  vs 80MHz, see `display.cpp`) -- so the fixed per-frame cost (whole-frame persistence fade +
+  SPI DMA transfer) is both larger in absolute terms and a much bigger share of each frame's
+  budget here, dwarfing the point-count-dependent rotate/project/write cost that dominates the
+  S3's numbers at low point counts. `avg_render_ms` still climbs slightly with point count
+  (36.4ms -> 37.7ms atom, 36.7ms -> 37.7ms orbital) -- the per-point cost is real, just small
+  next to the ~36ms fixed floor.
+- `avg_wait_ms` (not in the summary table, see the raw `BENCH,STEP` line) drifted mildly
+  downward across each sweep (atom: 11.4ms -> 10.6ms; orbital: 11.1ms -> 10.1ms) rather than
+  staying flat like the S3's -- small enough (~1ms) to plausibly be scheduling jitter rather
+  than a real trend, but flagged in case a future capture shows it growing further.
+- `iram_free` stayed exactly flat within each sweep (101364 atom, 101056 orbital) -- no leak
+  across steps. The 308-byte gap between the two is `orbitalPoints[]`/scratch vs `atomPoints[]`
+  differing in per-point struct size at the same `kBenchMaxPoints`=1000 ceiling, not drift.
+- `BENCH,MEM` start (105808 bytes internal free) vs end (101056) shows a one-time ~4.7KB drop,
+  not a per-step leak -- consistent with one-off allocations (e.g. the orbital sampler's
+  inverse-CDF table, built once on first use) rather than the sweep itself leaking.
+
+### Physical correctness (`BENCH,CONFIG` / `BENCH,ZEFF`)
+
+Bit-identical to the S3 table above (`[Ar] 3d6 4s2`, same seven `Z_eff` values to all 17
+significant digits logged) -- expected, since both are pure functions of Z with no RNG or
+point sampling, and this is the same `slater.h`/`slater_data.h` code compiled for a different
+target. Not re-tabulated here; see the S3 section's tables, this run reproduced them exactly.
+
+`BENCH,GEOM` isn't directly comparable to the S3 table's rows -- different point counts (CYD's
+sweep tops out at 1000, the S3's at 8000) and a different seed-consumption path (fewer points
+sampled per step), so the outer-subshell reference radius differs by construction, not as a
+regression signal. Confirmed the outer subshell is **4s at every step** (correct -- Fe's real
+valence shell), same as the S3 run.
+
+## MicroPython (ESP32-S3, 8MB Octal PSRAM)
+
+`micropython/benchmark_test.py` mirrors `src/debug/benchmark_test.cpp`'s methodology exactly, so
+the two are directly comparable: same fixed atom (Fe, Z=26), same fixed orbital preset (2p_z,
+`cloud_common.ORBITAL_PRESETS[DEFAULT_PRESET_INDEX]` -- index-matched to
+`kOrbitalDefaultPresetIndex`), same point-count sweep (500/1000/2000/4000/8000), same seed
+(12345, `kAtomCloudSeed`/`cloud_common.SEED`).
+
+### How to run it
+
+```
+mpremote connect <port> fs cp -r micropython/. :
+mpremote connect <port> exec "import benchmark_test; benchmark_test.run()"
+```
+
+### Parity fixes required before these numbers meant anything
+
+Three real mismatches were found and fixed before this comparison was trustworthy -- without
+them, MicroPython's numbers looked better than C++'s at low point counts, which was the tell
+that something was being measured unfairly rather than MicroPython genuinely being faster:
+
+1. **SPI clock**: `micropython/display.py` was running the panel at 40MHz;
+   `src/render/display.cpp`'s `LCD_PIXEL_CLOCK_HZ` for this same S3 target is 80MHz. Bumped to
+   match -- `SPI_BAUDRATE = 80_000_000`.
+2. **Table-build amortization**: C++'s orbital sampler tables (`kOrbitalLibrary`) and per-`(ell,
+   m)` angular tables (`angular_library.h`) are `constexpr`, baked into flash at *compile* time --
+   zero runtime cost, every sweep step. MicroPython was rebuilding the equivalent inverse-CDF
+   tables from scratch on every single sweep step. Fixed by adding real caches to
+   `cloud_common.py` (`_ORBITAL_SAMPLER_CACHE`) and `atom_cloud.py` (`_RADIAL_TABLE_CACHE`/
+   `_ANISO_SAMPLER_CACHE`), keyed by `(n, ell, m)` / `(z, n, ell[, m])` -- a genuine production
+   improvement (faster element/orbital switching in the live viewers, and in `pc/`, which shares
+   these modules), not just a benchmark shortcut. The one-time build cost is still real and is
+   reported separately (`BENCH,TABLEBUILD`), paid once before the timed sweep starts, mirroring
+   how C++ never pays it during the sweep either.
+3. **Render pipeline was doing less work than C++**: `src/render/camera.h`'s `renderScene()`/
+   `renderSceneGrouped()` fade the *entire* frame buffer toward black every frame
+   (`Display::fade()`, `kPersistenceKeepQ8=160/256`) and alpha-blend every point write against
+   whatever's already there (`blendColor565()`, `kElectronAlphaQ8=240/256`) -- not a hard clear
+   and opaque overwrite, which is what `device_render_common.py` was doing. Ported both to
+   MicroPython (`fade_buffer()` and the blend inside `render_points()`, both
+   `@micropython.viper`), using the identical unpack/scale/pack bit formulas as
+   `Display::unpackColor565()`/`fadeColor565()`/`blendColor565()` -- cross-checked bit-identical
+   against the C++ formulas across 200k random values before trusting it on hardware.
+
+Point-cloud sampling ALGORITHM parity was also checked directly (not just assumed): both sides
+use the same inverse-CDF sampling, the same `XorShift32` PRNG, the same 3-draws-per-point order
+(`src/physics/pointcloud.{h,cpp}` vs `micropython/pointcloud.py`) -- confirmed identical, so the
+build-time gap below is implementation speed (interpreted vs compiled), not different work.
+
+### One-time table-build cost (paid once per element/orbital selection, not per sweep step)
+
+| kind | warm_ms |
+|------|--------:|
+| atom (Fe subshells) | ~2400-2700 |
+| orbital (2p_z sampler) | ~650-660 |
+
+This is what the live viewers' "Loading..." screen covers -- with caching, it now only happens
+on the first visit to a given element/orbital per session, not on every switch.
+
+### Performance (`frames_per_step=30` -- half the C++ side's 60; FPS already converges well
+before 60 samples, and MicroPython's per-point sampling cost below makes the full schedule
+noticeably slower to capture, so this was halved to keep capture time reasonable)
+
+**Atom sweep (Fe, Z=26):**
+
+| points | build_ms | avg_compute_ms | avg_blit_ms | avg_frame_ms | fps | heap_free |
+|-------:|---------:|----------------:|-------------:|--------------:|-----:|----------:|
+|    500 |      325 |           56.428 |        13.224 |         69.652 | 14.36 |   7777696 |
+|   1000 |      694 |           56.648 |        13.125 |         69.773 | 14.33 |   7758192 |
+|   2000 |     1392 |           59.850 |        13.113 |         72.963 | 13.71 |   7719168 |
+|   4000 |     2900 |           65.867 |        13.168 |         79.035 | 12.65 |   7641168 |
+|   8000 |     5227 |           78.301 |        13.120 |         91.421 | 10.94 |   7460576 |
+
+**Orbital sweep (2p_z):**
+
+| points | build_ms | avg_compute_ms | avg_blit_ms | avg_frame_ms | fps | heap_free |
+|-------:|---------:|----------------:|-------------:|--------------:|-----:|----------:|
+|    500 |      453 |           53.063 |        13.148 |         66.212 | 15.10 |   7730400 |
+|   1000 |      863 |           54.717 |        13.142 |         67.859 | 14.74 |   7712416 |
+|   2000 |     1727 |           59.889 |        13.173 |         73.062 | 13.69 |   7676448 |
+|   4000 |     3543 |           64.565 |        13.117 |         77.682 | 12.87 |   7604384 |
+|   8000 |     7220 |           77.793 |        13.133 |         90.926 | 11.00 |   7460400 |
+
+`avg_compute_ms`/`avg_blit_ms` are the MicroPython analogue of C++'s `avg_render_ms`/
+`avg_wait_ms`, but the underlying mechanism differs: `st7789py.py`'s `blit_buffer()` is a
+synchronous blocking SPI write (no DMA-kickoff-then-wait-later split like
+`Display::presentFrame()`/`waitForFlushDone()`), so `avg_blit_ms` is the SPI transfer alone and
+`avg_compute_ms` is everything else (fade + proton marker + rotate/project/blend + title/scale
+bar), still excluding the blit.
+
+### Comparison vs C++ (same hardware class, same points, same seed)
+
+**FPS at matching point counts:**
+
+| points | C++ atom fps | MPY atom fps | C++ orbital fps | MPY orbital fps |
+|-------:|-------------:|-------------:|-----------------:|------------------:|
+|    500 |        45.89 |        14.36 |             45.87 |              15.10 |
+|   2000 |        42.08 |        13.71 |             42.00 |              13.69 |
+|   8000 |        33.56 |        10.94 |             31.47 |              11.00 |
+
+**Build/sampling cost at matching point counts:**
+
+| points | C++ atom build_ms | MPY atom build_ms | C++ orbital build_ms | MPY orbital build_ms |
+|-------:|-------------------:|--------------------:|-----------------------:|------------------------:|
+|    500 |                 20* |                  325 |                     105 |                      453 |
+|   2000 |                  24 |                 1392 |                     114 |                     1727 |
+|   8000 |                  50 |                 5227 |                     214 |                     7220 |
+
+(*C++'s own 500pt atom row has a one-off 265ms branch-prediction warmup artifact, documented
+above; the 1000pt row's 20ms is the representative "warm" figure.)
+
+### Interpretation
+
+- **Render path**: once the animation is doing genuinely equivalent per-frame work (fade +
+  alpha-blend, matching C++ bit-for-bit), MicroPython is consistently ~3x slower than C++ at
+  every point count -- `@micropython.viper`'s Q8-fixed-point loop is fast for an interpreted
+  target, but not compiled-native fast, and the persistence fade (57,600 pixels touched every
+  frame, independent of point count) is now the dominant per-frame cost. `avg_blit_ms` is flat
+  at ~13.1ms on both platforms, confirming the SPI-clock fix closed that gap specifically -- the
+  remaining FPS gap is compute, not the display transfer.
+- **Build/sampling path**: MicroPython is ~100x slower for atom sampling and ~34x slower for
+  orbital sampling at 8000 points, even after caching (eliminating the C++-side's
+  compile-time-embedded-table advantage), `@micropython.native` on the hot loops, and inlining
+  the color-encoding math to avoid losing native speedup on nested non-native calls. Applying
+  those three optimizations took the atom build from 7670ms to 5227ms (-32%) and the orbital
+  build from 13139ms to 7220ms (-45%) at 8000 points, measured against the original
+  uncached/unoptimized MicroPython numbers -- and that's despite the optimized numbers now
+  correctly *including* the per-point color-encoding step, which the original measurement had
+  silently left untimed. This residual gap (an interpreter, even an optimized one, doing
+  per-point trig/branchy Python vs compiled C++) is expected and would need inlining
+  `sample_orbital_point()`/`psi_real()` themselves to close further -- not done, since those are
+  cross-validated against the C++ and JS reference ports (`tools/orbitals_host/`) and duplicating
+  them inline is a real correctness risk for marginal further gain.
+- One-time table cost (~2.4-2.7s for Fe, ~0.65s for 2p_z) is a real, one-off "Loading..." delay
+  on first visit to an element/orbital per session, not a per-frame cost -- cached for every
+  later revisit.
+
+### Fade/blend now disabled by default on MicroPython (re-captured 2026-08-27)
+
+The sweep above was captured with `micropython/device_render_common.py`'s `PERSISTENCE_KEEP_Q8`/
+`ELECTRON_ALPHA_Q8` forced to match the C++ side (160/240) specifically for that apples-to-apples
+comparison. Following a visual A/B check on the C++ build (rendered live from the device --
+`img/fe_blend_on.gif` vs. `img/fe_blend_off.gif`/`img/fe_blend_comparison.gif`), those two
+constants now default to their disabled values (0/256) on MicroPython, since the "Render path"
+finding above -- full-frame fade dominating MicroPython's per-frame cost, ~3x slower than C++
+once the work matches exactly -- makes this the more expensive side to carry on an interpreted
+target. `render_frame()` takes an actual fast path when disabled (`fb.fill(0)` instead of
+`fade_buffer()`'s per-pixel loop; a plain overwrite instead of `render_points()`'s per-point
+blend, via the new `render_points_opaque()`). The C++ build is unaffected (`kPersistenceKeepQ8`/
+`kElectronAlphaQ8` in `src/config/visual_constants.h` are still 160/240).
+
+Both real fade/blend implementations are untouched and still bit-identical to the C++ formulas --
+set `PERSISTENCE_KEEP_Q8 = 160` / `ELECTRON_ALPHA_Q8 = 240` back in `device_render_common.py` to
+restore the matched-cost sweep the table above documents.
+
+Re-ran `micropython/benchmark_test.py` (same board, same methodology, `frames_per_step=30`)
+against this new default to confirm the expected speedup, not just the code-reading argument for
+it:
+
+**Atom sweep (Fe, Z=26):**
+
+| points | build_ms | avg_compute_ms | avg_blit_ms | avg_frame_ms | fps | heap_free |
+|-------:|---------:|----------------:|-------------:|--------------:|-----:|----------:|
+|    500 |      369 |            8.267 |        13.087 |         21.354 | 46.83 |   7776368 |
+|   1000 |      693 |            9.211 |        13.083 |         22.294 | 44.85 |   7756848 |
+|   2000 |     1391 |           11.094 |        13.089 |         24.183 | 41.35 |   7717856 |
+|   4000 |     2896 |           14.495 |        13.131 |         27.625 | 36.20 |   7639856 |
+|   8000 |     5224 |           21.431 |        13.090 |         34.521 | 28.97 |   7459264 |
+
+**Orbital sweep (2p_z):**
+
+| points | build_ms | avg_compute_ms | avg_blit_ms | avg_frame_ms | fps | heap_free |
+|-------:|---------:|----------------:|-------------:|--------------:|-----:|----------:|
+|    500 |      454 |            6.275 |        13.098 |         19.373 | 51.62 |   7729088 |
+|   1000 |      860 |            7.275 |        13.094 |         20.369 | 49.09 |   7711104 |
+|   2000 |     1724 |           11.294 |        13.187 |         24.481 | 40.85 |   7675136 |
+|   4000 |     3542 |           13.377 |        13.101 |         26.478 | 37.77 |   7603104 |
+|   8000 |     7236 |           21.171 |        13.094 |         34.264 | 29.18 |   7459056 |
+
+`avg_compute_ms` (fade/proton/rotate-project-write, excluding blit) dropped ~85% at 500 points
+(56.4ms -> 8.3ms atom, 53.1ms -> 6.3ms orbital) and ~73% at 8000 (78.3ms -> 21.4ms atom, 77.8ms
+-> 21.2ms orbital) vs. the matched-cost table above -- the gap narrows at higher point counts
+because per-point rotate/project/write cost (unavoidable, same in both builds) grows with point
+count while the now-skipped full-frame fade stays flat, so it's a shrinking share of the total.
+
+**FPS at production count (8000 points) vs. C++, before and after this change:**
+
+| points | C++ atom fps | MPY atom fps (matched) | MPY atom fps (fast default) | C++ orbital fps | MPY orbital fps (matched) | MPY orbital fps (fast default) |
+|-------:|-------------:|------------------------:|------------------------------:|-----------------:|----------------------------:|----------------------------------:|
+|   8000 |        33.56 |                    10.94 |                          28.97 |             31.47 |                        11.00 |                              29.18 |
+
+MicroPython went from ~3.1x slower than C++ to ~1.16x slower at the production point count --
+`build_ms` (point-cloud sampling, unaffected by this change) is still the larger remaining gap
+(e.g. 5224ms vs. C++'s 50ms at 8000 atom points -- see "Build/sampling path" above), not the
+render loop.
+
+### MicroPython point count (dimness investigation, 2026-08-27)
+
+Live demo on-device looked visibly dimmer/sparser than the C++ build side by side. Three
+compounding factors, chased down together rather than guessed at:
+
+1. **Point count.** `N_POINTS` in `cloud_common.py`/`atom_view.py` was 3000, vs. C++'s
+   `kOrbitalNumPoints`/`kAtomNumPoints` = 12000 -- a 4x density gap, the single biggest
+   contributor to the sparse look.
+2. **Fade/blend disabled by default** (see previous section) -- no persistence trail means each
+   point is only ever lit for exactly one frame, so the same point count reads dimmer than a
+   fading build even at equal density.
+3. **Brighten-factor mismatch.** `OUTER_SHELL_BRIGHTEN` in `atom_cloud.py` was 0.3 vs. C++'s
+   `kAtomOuterShellBrighten` = 0.4 -- outer-shell (valence) points, the ones most visible at a
+   glance, were rendered dimmer than intended independent of the other two factors.
+
+Bumping `N_POINTS` to the full 12000 to match C++ exactly was tried first and measured: atom
+build/load time went from ~2.9s (3000 pts) to **16.4s (12000 pts)** on this board -- too slow for
+the idle-cycling/element-switching feel of the live demo, since every switch re-samples and
+re-builds the point cloud from scratch (the table-caching added earlier caches the *sampling
+tables*, not the sampled point set itself, so this cost is paid every time regardless).
+
+Settled on:
+- `N_POINTS = 5000` (`cloud_common.py`, `atom_view.py`) -- roughly splits the gap, keeps
+  build/load time in the low single-digit seconds, well short of C++'s 12000 but a meaningful
+  density bump over the original 3000.
+- `OUTER_SHELL_BRIGHTEN = 0.4` (`atom_cloud.py`) -- now matches `kAtomOuterShellBrighten` exactly.
+- Fade/blend stays disabled by default (explicit decision, not revisited) -- the ~3x render-loop
+  cost documented above isn't worth paying back just for the persistence-trail brightness effect.
+
+Net effect: still fewer, non-fading points than C++, by design -- this is a deliberate
+speed/density trade-off for the interpreted target, not an attempt to make MicroPython visually
+identical to C++ at matched point count (that comparison is what the sweep tables above are for).
+
+### Caveats / non-identical factors not chased down further
+
+- Font rendering differs: C++ rasterizes a real typeface (Jersey10) into a proportional bitmap
+  font (`src/render/font.cpp`); MicroPython uses `framebuf`'s built-in fixed 8x8 font. Both are
+  bitmap fonts drawn pixel-by-pixel (same general cost order), and it's a small, point-count-
+  -independent fixed cost either way (one title string + one scale-bar string per frame) -- not
+  worth unifying just for this benchmark.
+- `frames_per_step=30` on MicroPython vs 60 on C++, purely for capture-time budget; FPS already
+  converges well before 60 samples at either count.
