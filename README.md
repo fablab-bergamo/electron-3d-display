@@ -11,8 +11,8 @@
 > completi — rese come nuvole di punti rotanti e riflesse da un prisma di
 > vetro, così da fluttuare a mezz'aria sopra lo schermo.
 
-**[Try it in your browser](https://pbrunot.github.io/electron-3d-display/)** — no hardware needed, runs the same math as the device.
-**[Provalo nel browser](https://pbrunot.github.io/electron-3d-display/)** — nessun hardware richiesto, usa la stessa matematica del dispositivo.
+**[Try it in your browser](https://fablab-bergamo.github.io/electron-3d-display/)** — no hardware needed, runs the same math as the device.
+**[Provalo nel browser](https://fablab-bergamo.github.io/electron-3d-display/)** — nessun hardware richiesto, usa la stessa matematica del dispositivo.
 
 ![hero](img/hero.png)
 
