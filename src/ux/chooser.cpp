@@ -94,13 +94,34 @@ void calibrateDirections(Display &display, TiltGestureDetector &tilt)
     ESP_LOGI(kChooserTag, "direction calibration complete");
 }
 
-static void drawChooserScreen(Display &display)
+/// Plain rect fill -- cheap enough (a few thousand writePx() calls for the chooser's toolbar
+/// band) to repaint every poll, unlike drawSplashScreen()'s ~60-90ms JPEG decode.
+static void fillRect(Display &display, int x, int y, int w, int h, uint16_t color)
 {
-    // Static splash image (same one main.cpp shows at boot), blitted in first at full
-    // brightness so the menu text composites on top of it (plain overwrite, no blending,
-    // matching every other draw function in this project). No per-frame animation, so this
-    // is just a blit straight out of the generated array every frame.
-    display.blit(0, 0, kSplashBitmapData, kSplashBitmapWidth, kSplashBitmapHeight);
+    for (int py = y; py < y + h; py++)
+        for (int px = x; px < x + w; px++)
+            display.writePx(px, py, color);
+}
+
+/**
+ * @brief Draw the menu screen -- background art, the fixed-color toolbar band, the two
+ *        blinking option lines, and (while a tilt is held) the direction-cluster arrow.
+ *
+ * `fullRedraw` gates the (comparatively expensive, ~60-90ms) background decode-and-draw: false
+ * on every steady-state poll, since the background never changes on its own between polls.
+ * The toolbar band (kChooserBandY down to the screen bottom) is repainted flat every poll
+ * regardless -- a plain rect fill, not a decode -- so the option text and arrow cluster always
+ * sit on a known, graphics-free backdrop; drawing over the band from scratch each time means
+ * nothing here ever needs to preserve or restore whatever was underneath it (unlike the old
+ * screen-edge arrow, which had to snapshot/restore the splash artwork it was drawn over).
+ */
+static void drawChooserScreen(Display &display, bool fullRedraw, TiltEvent ev)
+{
+    if (fullRedraw)
+        drawSplashScreen(display); // no-op (logged) on mount/decode failure, not a crash
+
+    fillRect(display, 0, kChooserBandY, Display::kDisplayWidth, Display::kDisplayHeight - kChooserBandY,
+             kChooserBandColor);
 
     // Alternate between two colors each half-period (rather than blinking on/off) so the
     // text stays put and flashy the whole time instead of periodically vanishing.
@@ -108,6 +129,10 @@ static void drawChooserScreen(Display &display)
     uint16_t color = colorA ? kChooserOptionColorA : kChooserOptionColorB;
     drawTextCentered(display, kChooserOption1Y, "UP: Orbitals", color, kFontLarge, kChooserOptionScale);
     drawTextCentered(display, kChooserOption2Y, "DOWN: Elements", color, kFontLarge, kChooserOptionScale);
+
+    if (ev.phase != TiltPhase::kIdle)
+        drawTiltArrowAt(display, ev.direction, kChooserArrowClusterCx, kChooserArrowClusterCy, kChooserArrowLengthPx,
+                        kChooserArrowHalfWidthPx, kAccentColor);
 }
 
 /**
@@ -123,15 +148,21 @@ void runChooser(Display &display, TiltGestureDetector &tilt)
 
     int64_t lastActivityUs = esp_timer_get_time();
 
+    // needsFullRedraw: true only right after entering this loop or returning from a viewer,
+    // when the frame buffer holds something other than the chooser background -- every other
+    // iteration, the background art is already sitting there from the last full redraw; the
+    // toolbar band/text/arrow are cheap enough to repaint every poll regardless (see
+    // drawChooserScreen()), so there's no separate arrow-erase state to track here anymore.
+    bool needsFullRedraw = true;
+
     while (true)
     {
         screenshot_pause::checkpoint(); // see screenshot_pause.h -- lets a screenshot capture happen safely
         display.waitForFlushDone();
-        drawChooserScreen(display);
 
         TiltEvent ev = tilt.poll();
-        if (ev.phase != TiltPhase::kIdle)
-            drawTiltArrow(display, ev.direction, kAccentColor);
+        drawChooserScreen(display, needsFullRedraw, ev);
+        needsFullRedraw = false;
         display.presentFrame();
 
         if (ev.phase == TiltPhase::kConfirmed)
@@ -150,6 +181,7 @@ void runChooser(Display &display, TiltGestureDetector &tilt)
                 ESP_LOGI(kChooserTag, "back to menu");
             }
             lastActivityUs = esp_timer_get_time();
+            needsFullRedraw = true;
         }
         else if (esp_timer_get_time() - lastActivityUs > kChooserIdleJumpUs)
         {
@@ -165,6 +197,7 @@ void runChooser(Display &display, TiltGestureDetector &tilt)
             }
             ESP_LOGI(kChooserTag, "back to menu");
             lastActivityUs = esp_timer_get_time();
+            needsFullRedraw = true;
         }
 
         vTaskDelay(pdMS_TO_TICKS(kChooserPollDelayMs));

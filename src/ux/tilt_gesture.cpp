@@ -228,27 +228,109 @@ static void fillTriangle(Display &display, int x0, int y0, int x1, int y1, int x
     }
 }
 
+namespace
+{
+    /// Screen-edge-anchored vertices for drawTiltArrow() -- returns false (vertices untouched)
+    /// for kNone.
+    bool arrowTriangle(TiltDirection dir, int &x0, int &y0, int &x1, int &y1, int &x2, int &y2)
+    {
+        constexpr int kCx = Display::kDisplayWidth / 2, kCy = Display::kDisplayHeight / 2;
+        constexpr int kW = Display::kDisplayWidth, kH = Display::kDisplayHeight;
+        constexpr int kM = kTiltArrowMarginPx, kL = kTiltArrowLengthPx, kHw = kTiltArrowHalfWidthPx;
+
+        switch (dir)
+        {
+        case TiltDirection::kRight:
+            x0 = kW - kM;
+            y0 = kCy;
+            x1 = x2 = kW - kM - kL;
+            y1 = kCy - kHw;
+            y2 = kCy + kHw;
+            return true;
+        case TiltDirection::kLeft:
+            x0 = kM;
+            y0 = kCy;
+            x1 = x2 = kM + kL;
+            y1 = kCy - kHw;
+            y2 = kCy + kHw;
+            return true;
+        case TiltDirection::kUp:
+            x0 = kCx;
+            y0 = kM;
+            y1 = y2 = kM + kL;
+            x1 = kCx - kHw;
+            x2 = kCx + kHw;
+            return true;
+        case TiltDirection::kDown:
+            x0 = kCx;
+            y0 = kH - kM;
+            y1 = y2 = kH - kM - kL;
+            x1 = kCx - kHw;
+            x2 = kCx + kHw;
+            return true;
+        case TiltDirection::kNone:
+            return false;
+        }
+        return false;
+    }
+} // namespace
+
 void drawTiltArrow(Display &display, TiltDirection dir, uint16_t color)
 {
-    constexpr int kCx = Display::kDisplayWidth / 2, kCy = Display::kDisplayHeight / 2;
-    constexpr int kW = Display::kDisplayWidth, kH = Display::kDisplayHeight;
-    constexpr int kM = kTiltArrowMarginPx, kL = kTiltArrowLengthPx, kHw = kTiltArrowHalfWidthPx;
+    int x0, y0, x1, y1, x2, y2;
+    if (arrowTriangle(dir, x0, y0, x1, y1, x2, y2))
+        fillTriangle(display, x0, y0, x1, y1, x2, y2, color);
+}
 
-    switch (dir)
+namespace
+{
+    /// Like arrowTriangle() above, but centered at an arbitrary point with its own size instead
+    /// of anchored to a screen edge via the shared kTiltArrow*Px constants -- see
+    /// drawTiltArrowAt()'s header comment.
+    bool arrowTriangleAt(TiltDirection dir, int cx, int cy, int length, int halfWidth, int &x0, int &y0, int &x1,
+                        int &y1, int &x2, int &y2)
     {
-    case TiltDirection::kRight:
-        fillTriangle(display, kW - kM, kCy, kW - kM - kL, kCy - kHw, kW - kM - kL, kCy + kHw, color);
-        break;
-    case TiltDirection::kLeft:
-        fillTriangle(display, kM, kCy, kM + kL, kCy - kHw, kM + kL, kCy + kHw, color);
-        break;
-    case TiltDirection::kUp:
-        fillTriangle(display, kCx, kM, kCx - kHw, kM + kL, kCx + kHw, kM + kL, color);
-        break;
-    case TiltDirection::kDown:
-        fillTriangle(display, kCx, kH - kM, kCx - kHw, kH - kM - kL, kCx + kHw, kH - kM - kL, color);
-        break;
-    case TiltDirection::kNone:
-        break;
+        int half = length / 2;
+        switch (dir)
+        {
+        case TiltDirection::kRight:
+            x0 = cx + half;
+            y0 = cy;
+            x1 = x2 = cx - half;
+            y1 = cy - halfWidth;
+            y2 = cy + halfWidth;
+            return true;
+        case TiltDirection::kLeft:
+            x0 = cx - half;
+            y0 = cy;
+            x1 = x2 = cx + half;
+            y1 = cy - halfWidth;
+            y2 = cy + halfWidth;
+            return true;
+        case TiltDirection::kUp:
+            x0 = cx;
+            y0 = cy - half;
+            y1 = y2 = cy + half;
+            x1 = cx - halfWidth;
+            x2 = cx + halfWidth;
+            return true;
+        case TiltDirection::kDown:
+            x0 = cx;
+            y0 = cy + half;
+            y1 = y2 = cy - half;
+            x1 = cx - halfWidth;
+            x2 = cx + halfWidth;
+            return true;
+        case TiltDirection::kNone:
+            return false;
+        }
+        return false;
     }
+} // namespace
+
+void drawTiltArrowAt(Display &display, TiltDirection dir, int cx, int cy, int length, int halfWidth, uint16_t color)
+{
+    int x0, y0, x1, y1, x2, y2;
+    if (arrowTriangleAt(dir, cx, cy, length, halfWidth, x0, y0, x1, y1, x2, y2))
+        fillTriangle(display, x0, y0, x1, y1, x2, y2, color);
 }

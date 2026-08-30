@@ -179,3 +179,15 @@ private:
 /// (kNone draws nothing). Plain/static -- no animation or text; kTiltArrow*Px above are the
 /// only tuning knobs needed to add either later without touching the rasterizer.
 void drawTiltArrow(Display &display, TiltDirection dir, uint16_t color);
+
+/**
+ * @brief Like drawTiltArrow(), but centered at an arbitrary (cx, cy) with its own tip-to-base
+ *        `length`/`halfWidth` instead of the shared screen-edge kTiltArrow*Px geometry.
+ *
+ * Used by ux/chooser.cpp's compact toolbar-band direction cluster, which groups all 4
+ * directions together in one small reserved (flat-color) area instead of spreading them
+ * across the screen edges -- since that whole area is repainted flat every poll (see
+ * chooser.cpp's kChooserBandColor), there's no background to preserve/restore here, unlike
+ * drawTiltArrow()'s screen-edge placements over live artwork/render frames.
+ */
+void drawTiltArrowAt(Display &display, TiltDirection dir, int cx, int cy, int length, int halfWidth, uint16_t color);
