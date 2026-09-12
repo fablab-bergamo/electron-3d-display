@@ -56,7 +56,9 @@ class Preset:
         self.xs, self.ys, self.zs = xs, ys, zs
         phase_pair = cloud_common.ORBITAL_PHASE_COLORS[index]
         self.colors = [cloud_common.level_to_rgb(level, sign, phase_pair) for level, sign in zip(levels, signs)]
-        self.title = cloud_common.title_for_preset(cloud_common.ORBITAL_PRESETS[index])
+        # Script-ell ℓ (U+2113) replaces ASCII 'l=' -- same substitution as
+        # pc/orbital_view_pc.py; cloud_common keeps plain 'l=' for the device.
+        self.title = cloud_common.title_for_preset(cloud_common.ORBITAL_PRESETS[index]).replace(' l=', ' ℓ=')
         self.base_scale, self.zoom_amplitude, self.r_ref = cloud_common.scale_from_radii(xs, ys, zs)
 
         print("orbital: %s loaded in %.2fs, scale=%.1f" % (label, time.time() - t0, self.base_scale))

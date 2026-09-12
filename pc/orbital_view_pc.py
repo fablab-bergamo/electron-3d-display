@@ -159,7 +159,10 @@ class Preset:
         self.phase_pair = cloud_common.ORBITAL_PHASE_COLORS[index]
         self.colors = [cloud_common.level_to_rgb(level, sign, self.phase_pair)
                        for level, sign in zip(levels, signs)]
-        self.title = cloud_common.title_for_preset(cloud_common.ORBITAL_PRESETS[index])
+        # Replace ASCII 'l=' with the conventional script-ell ℓ (U+2113) for
+        # display on PC where Unicode fonts are available. cloud_common keeps
+        # plain 'l=' so the device's ASCII-only font path is unaffected.
+        self.title = cloud_common.title_for_preset(cloud_common.ORBITAL_PRESETS[index]).replace(' l=', ' ℓ=')
         self.base_scale, self.zoom_amplitude, self.r_ref = cloud_common.scale_from_radii(xs, ys, zs)
         self.resample_state = cloud_common.ResampleState(
             sampler, rng, radial_coeff, legendre_coeff, n, ell, m, psi2_sorted)
@@ -370,14 +373,14 @@ class OrbitalViewApp:
         self.root.update()
 
     def _reveal_intro(self, n, ell, m):
-        """Reveal "n=X", then "n=X l=Y", then "n=X l=Y m=Z", each held
+        """Reveal "n=X", then "n=X ℓ=Y", then "n=X ℓ=Y m=Z", each held
         REVEAL_STAGE_HOLD_S over the equation backdrop, with an extra
         REVEAL_FINAL_EXTRA_HOLD_S after the final stage -- the PC counterpart
         of the device's scrollOrbitalIntro().
         """
         stages = ("n=%d" % n,
-                  "n=%d l=%d" % (n, ell),
-                  "n=%d l=%d m=%d" % (n, ell, m))
+                  "n=%d ℓ=%d" % (n, ell),
+                  "n=%d ℓ=%d m=%d" % (n, ell, m))
         for i, stage in enumerate(stages):
             self._render_reveal_stage(stage)
             hold = REVEAL_STAGE_HOLD_S + (REVEAL_FINAL_EXTRA_HOLD_S if i == len(stages) - 1 else 0.0)
