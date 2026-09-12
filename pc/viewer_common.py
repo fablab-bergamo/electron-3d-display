@@ -635,8 +635,13 @@ def blit_to_canvas(app, overlays):
         cw, ch = DISPLAY_SIZE
     side = min(cw, ch)
     image = image.resize((side, side), Image.NEAREST)
+    # Hold the previous PhotoImage until after itemconfig so Python 3.12's
+    # finalizer thread can't free its Tcl image object while Tcl is still
+    # rendering it (SIGSEGV in _imaging / _tkinter during root.update()).
+    _prev = getattr(app, 'photo', None)
     app.photo = ImageTk.PhotoImage(image)
     x = (cw - side) // 2
     y = (ch - side) // 2
     app.canvas.coords(app.image_id, x, y)
     app.canvas.itemconfig(app.image_id, image=app.photo)
+    del _prev
