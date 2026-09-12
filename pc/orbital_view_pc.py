@@ -182,7 +182,7 @@ class OrbitalViewApp:
         self.canvas = canvas or tk.Canvas(self.root, width=DISPLAY_SIZE[0], height=DISPLAY_SIZE[1],
                                            bg='black', highlightthickness=0)
         if canvas is None:
-            self.canvas.pack()
+            self.canvas.pack(fill='both', expand=True)
         self.canvas.focus_set()
 
         if self.owns_root:

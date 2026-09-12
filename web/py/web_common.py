@@ -93,7 +93,7 @@ ZOOM_EXCURSION_EASE_FRAMES_BASE = 100
 ZOOM_EXCURSION_EASE_FRAMES_PER_SHELL = 50
 
 # --- Bounding sphere + rotation marker -----------------------------------------
-BOUNDING_SPHERE_COLOR = (70, 70, 90)
+BOUNDING_SPHERE_COLOR = (130, 130, 160)
 MARKER_FONT_PX = 15
 MARKER_ELEVATION_DEG = 50.0
 _MARKER_ELEVATION_RAD = math.radians(MARKER_ELEVATION_DEG)
@@ -130,7 +130,7 @@ SCALE_BAR_FONT_PX = 22
 # --- HUD text positions -----------------------------------------------------------
 TITLE_POS = (4, 4)
 SUBTITLE_POS = (4, 20)
-TITLE_FONT_PX = 15
+TITLE_FONT_PX = 20
 
 
 def next_zoom_excursion_countdown():
@@ -375,6 +375,7 @@ def draw_bounding_circle_canvas(r_ref, scale, outline_color=BOUNDING_SPHERE_COLO
     """Canvas counterpart of pc/viewer_common.py's draw_bounding_circle()."""
     px_r = max(r_ref * scale, 0)
     _ctx.strokeStyle = rgb_css(outline_color)
+    _ctx.lineWidth = 2
     _ctx.beginPath()
     _ctx.arc(CENTER, CENTER, px_r, 0, 2 * math.pi)
     _ctx.stroke()

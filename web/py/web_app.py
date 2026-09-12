@@ -221,6 +221,12 @@ class WebApp:
                 self.atom.zoom_by(ZOOM_FACTOR_STEP)
             elif key == '-':
                 self.atom.zoom_by(1 / ZOOM_FACTOR_STEP)
+            elif key in ('Enter', 'Return'):
+                self.atom.input_commit()
+            elif key == 'Backspace':
+                self.atom.input_backspace()
+            elif len(key) == 1 and key.isdigit():
+                self.atom.input_digit(key)
 
     def on_click(self, x, y):
         if self.active == 'chooser':
@@ -235,8 +241,8 @@ class WebApp:
             return 'Up/Down or click to choose, Enter to confirm'
         if self.active == CHOICE_ORBITALS:
             return 'Up/Down = change orbital. Esc = back to menu.'
-        return ('Up/Down = change element (Z). Mouse wheel or +/- = zoom. '
-                'D = dissect orbitals. Esc = back to menu.')
+        return ('Up/Down = ±1 Z. Type digits + Enter = jump to Z. '
+                'Wheel/+- = zoom. D = dissect. Esc = menu.')
 
     def dissect_enabled(self):
         """Dissection is an Element Explorer-only feature -- a single

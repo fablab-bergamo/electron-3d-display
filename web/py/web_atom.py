@@ -326,6 +326,9 @@ class WebAtomApp:
             None  # active generator (intro/switch/dissect/excursion), if any
         )
 
+        # Accumulated digit string for direct Z entry (type digits then Enter).
+        self._z_input = ''
+
     def effective_base_scale(self):
         return self.preset.base_scale * self.zoom_factor
 
@@ -351,6 +354,9 @@ class WebAtomApp:
             self.preset.outer_n,
             self.preset.outer_ell,
         )
+        if self._z_input:
+            draw_text_canvas(WIDTH - 8, TITLE_POS[1], '→ ' + self._z_input,
+                             (255, 220, 40), font_px=TITLE_FONT_PX, align='right', baseline='top')
 
     def blit_dissection(self, scale, r_ref, title):
         """Device-style dissection HUD (same as pc/atom_view_pc.py's
@@ -540,9 +546,32 @@ class WebAtomApp:
             self.dissecting = False
 
     def request_z(self, step):
+        self._z_input = ''  # discard any partially-typed Z when navigating with arrows
         new_z = self.z + step
         if 1 <= new_z <= slater.MAX_DISPLAY_Z:
             self.pending_z = new_z
+
+    def request_z_goto(self, target_z):
+        self._z_input = ''
+        if 1 <= target_z <= slater.MAX_DISPLAY_Z:
+            self.pending_z = target_z
+
+    def input_digit(self, digit):
+        if len(self._z_input) < 3:
+            self._z_input += digit
+
+    def input_backspace(self):
+        self._z_input = self._z_input[:-1]
+
+    def input_commit(self):
+        if not self._z_input:
+            return
+        try:
+            target = int(self._z_input)
+        except ValueError:
+            self._z_input = ''
+            return
+        self.request_z_goto(target)
 
     def request_dissect(self):
         if not self.dissecting:
@@ -610,7 +639,8 @@ class WebAtomApp:
             + self.effective_zoom_amplitude() * math.sin(self.zoom_angle)
         )
         render_frame(
-            self.buf, self.preset, self.angle, self.tilt_angle, self.roll_angle, scale
+            self.buf, self.preset, self.angle, self.tilt_angle, self.roll_angle, scale,
+            buzz_fraction=cloud_common.BUZZ_FRACTION,
         )
         self.blit(scale)
 

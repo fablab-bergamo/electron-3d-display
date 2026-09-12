@@ -13,10 +13,16 @@
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   #wrap {
-    max-width: 520px;
+    /* clamp(min, default, max): fills 90vmin by default (fits the screen in
+       any orientation on large monitors), shrinks to viewport width on mobile,
+       never below 280px. resize:horizontal lets the user drag the right edge
+       to a custom width; overflow:hidden is required for resize to work. */
+    width: clamp(280px, 90vmin, 95vw);
     margin: 0 auto;
     padding: 12px 12px 20px;
     box-sizing: border-box;
+    resize: horizontal;
+    overflow: hidden;
   }
   h1 {
     font-size: 15px;

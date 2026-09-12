@@ -125,9 +125,10 @@ ZOOM_EXCURSION_EASE_FRAMES_BASE = 100
 ZOOM_EXCURSION_EASE_FRAMES_PER_SHELL = 50
 
 # --- Bounding sphere + rotation marker ---------------------------------------
-BOUNDING_SPHERE_COLOR = (70, 70, 90)
+BOUNDING_SPHERE_COLOR = (130, 130, 160)
 MARKER_TEXT = "H"
 MARKER_FONT_SIZE = 15
+TITLE_FONT_SIZE = 18
 # Elevated near the pole (not 0deg, which would sit exactly on the Y rotation
 # axis and never move) so the marker visibly moves every frame, giving an
 # unambiguous read on rotation direction/speed.
@@ -138,6 +139,7 @@ MARKER_COLOR_FRONT = (255, 220, 40)    # rotating toward the viewer -- a warm
                                         # color shift reads much stronger than
                                         # a gray brightness change
 _MARKER_FONT = ImageFont.load_default(size=MARKER_FONT_SIZE)  # loaded once, not per frame
+_TITLE_FONT = ImageFont.load_default(size=TITLE_FONT_SIZE)
 
 # --- Nucleus ----------------------------------------------------------------
 # 14px, not the device's 7: the PC buffer is 480x480 = 2x the 240 panel, so 2x
@@ -408,7 +410,7 @@ def draw_bounding_circle(draw, r_ref, scale, outline_color=BOUNDING_SPHERE_COLOR
     """
     px_r = r_ref * scale
     draw.ellipse((CENTER - px_r, CENTER - px_r, CENTER + px_r, CENTER + px_r),
-                 outline=outline_color)
+                 outline=outline_color, width=2)
 
 
 def draw_orbit_marker(draw, r_ref, scale, angle, tilt_angle, roll_angle, marker_text=MARKER_TEXT,
@@ -591,12 +593,21 @@ def maybe_zoom_excursion(app, base_scale, zoom_amplitude, outer_r_ref, inner_r_r
 
 def blit_to_canvas(app, overlays):
     """Convert app.buf to a tkinter canvas image, letting `overlays(draw)`
-    add PIL overlays (marker, scale bar, title) in between. Shared by both
-    viewers' _blit methods.
+    add PIL overlays (marker, scale bar, title) in between. Scales to the
+    canvas's current on-screen size (letterboxed square) so the viewer
+    fills the window when resized. Shared by both viewers' _blit methods.
     """
     image = Image.frombuffer('RGB', (WIDTH, HEIGHT), bytes(app.buf), 'raw', 'RGB', 0, 1)
     draw = ImageDraw.Draw(image)
     overlays(draw)
-    image = image.resize(DISPLAY_SIZE, Image.NEAREST)
+    cw = app.canvas.winfo_width()
+    ch = app.canvas.winfo_height()
+    if cw < 2 or ch < 2:
+        cw, ch = DISPLAY_SIZE
+    side = min(cw, ch)
+    image = image.resize((side, side), Image.NEAREST)
     app.photo = ImageTk.PhotoImage(image)
+    x = (cw - side) // 2
+    y = (ch - side) // 2
+    app.canvas.coords(app.image_id, x, y)
     app.canvas.itemconfig(app.image_id, image=app.photo)

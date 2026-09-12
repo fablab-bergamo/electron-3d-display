@@ -53,7 +53,7 @@ from viewer_common import (
     FRAME_DELAY_MS, ZOOM_ANGLE_STEP, ROLL_ANGLE_STEP,
     _TILT_ANGLE_START, _ROLL_ANGLE_START,
     PROTON_SIZE, PROTON_COLOR, ELECTRON_ALPHA, ELECTRON_SIZE,
-    TITLE_POS,
+    TITLE_POS, _TITLE_FONT,
     render_frame, draw_orbit_marker, draw_bounding_circle, draw_scale_bar,
     draw_nucleus, rotate_yaw_tilt_roll, advance_rotation, blend_electron,
     fly_over, maybe_zoom_excursion, blit_to_canvas, find_unicode_font,
@@ -344,15 +344,15 @@ def draw_atom_title(draw, x, y, z, config, outer_n=None, outer_ell=None):
     (draw.textlength()).
     """
     prefix = "%s (Z=%d) " % (slater.element_symbol(z), z)
-    draw.text((x, y), prefix, fill=(255, 255, 255))
-    cursor_x = x + draw.textlength(prefix)
+    draw.text((x, y), prefix, fill=(255, 255, 255), font=_TITLE_FONT)
+    cursor_x = x + draw.textlength(prefix, font=_TITLE_FONT)
     for n, ell, occ in config:
         segment = "%s%d " % (slater.subshell_label(n, ell), occ)
         color = atom_cloud.SHELL_RGB[n] if n < len(atom_cloud.SHELL_RGB) else atom_cloud.SHELL_RGB[-1]
         if n == outer_n and ell == outer_ell:
             color = atom_cloud._brighten_outer_shell(color)
-        draw.text((cursor_x, y), segment, fill=color)
-        cursor_x += draw.textlength(segment)
+        draw.text((cursor_x, y), segment, fill=color, font=_TITLE_FONT)
+        cursor_x += draw.textlength(segment, font=_TITLE_FONT)
 
 
 def make_atom_preset(z, radial_tables=None):
@@ -392,12 +392,12 @@ class AtomViewApp:
         self.canvas = canvas or tk.Canvas(self.root, width=DISPLAY_SIZE[0], height=DISPLAY_SIZE[1],
                                            bg='black', highlightthickness=0)
         if canvas is None:
-            self.canvas.pack()
+            self.canvas.pack(fill='both', expand=True)
         self.canvas.focus_set()
 
         if self.owns_root:
-            tk.Label(self.root, text="Up/Down = change element (Z). Mouse wheel or +/- = zoom. "
-                                      "D = dissect orbitals. Esc/close window to quit.",
+            tk.Label(self.root, text="Up/Down = ±1 Z. Type digits + Enter = jump to Z. "
+                                      "Wheel/+- = zoom. D = dissect. Esc = quit.",
                      fg='white', bg='black').pack(fill='x')
 
         # aborted/on_exit/_bound_sequences: the shared Escape-to-return
@@ -439,6 +439,9 @@ class AtomViewApp:
         self.last_activity = time.time()
         self.idle_dissected_this_element = False
 
+        # Accumulated digit string for direct Z entry (type digits then Enter).
+        self._z_input = ''
+
         self._bind('<Up>', lambda e: self._request_z(1))
         self._bind('<Down>', lambda e: self._request_z(-1))
         self._bind('<d>', lambda e: self._request_dissect())
@@ -448,6 +451,14 @@ class AtomViewApp:
         # shortcut shouldn't depend on. root.bind() fires regardless of
         # which child widget has focus, as long as the window does.
         self.root.bind('<Escape>', self._request_exit)
+
+        # Direct Z entry: digit keys accumulate a number, Enter commits it.
+        for digit in '0123456789':
+            self._bind('<Key-%s>' % digit, lambda e, d=digit: self._on_z_digit(d))
+            self._bind('<KP_%s>' % digit, lambda e, d=digit: self._on_z_digit(d))
+        self._bind('<BackSpace>', lambda e: self._on_z_backspace())
+        self._bind('<Return>', lambda e: self._on_z_enter())
+        self._bind('<KP_Enter>', lambda e: self._on_z_enter())
 
         # Mouse wheel: <MouseWheel>+event.delta on Windows/Mac, Button-4/5 on
         # Linux/X11 -- binding all three covers every platform this viewer
@@ -523,6 +534,7 @@ class AtomViewApp:
 
     def _request_z(self, step):
         self.last_activity = time.time()  # any input resets the idle clock
+        self._z_input = ''  # discard any partially-typed Z when navigating with arrows
         if self.dissecting:
             # Any movement during a dissection aborts it back to the full
             # element -- the gesture is consumed by the abort, not queued as
@@ -559,6 +571,33 @@ class AtomViewApp:
         # sign matters here.
         self._zoom_by(ZOOM_FACTOR_STEP if event.delta > 0 else 1.0 / ZOOM_FACTOR_STEP)
 
+    def _on_z_digit(self, digit):
+        self.last_activity = time.time()
+        if len(self._z_input) < 3:  # Z <= 92, at most 2 digits needed; 3 for safety
+            self._z_input += digit
+
+    def _on_z_backspace(self):
+        self._z_input = self._z_input[:-1]
+
+    def _on_z_enter(self):
+        if not self._z_input:
+            return
+        try:
+            target = int(self._z_input)
+        except ValueError:
+            self._z_input = ''
+            return
+        self._z_input = ''
+        self._request_z_goto(target)
+
+    def _request_z_goto(self, target_z):
+        self.last_activity = time.time()
+        if self.dissecting:
+            self.abort_dissection = True
+            return
+        if 1 <= target_z <= self._max_z:
+            self._pending_z = target_z
+
     def _effective_base_scale(self):
         return self.preset.base_scale * self.zoom_factor
 
@@ -577,6 +616,12 @@ class AtomViewApp:
             draw_scale_bar(draw, scale / atom_cloud.PM_PER_BOHR, "pm")
             draw_atom_title(draw, TITLE_POS[0], TITLE_POS[1], self.z, self.preset.config,
                              self.preset.outer_n, self.preset.outer_ell)
+            # Direct-Z-entry overlay: show accumulated digits while the user types.
+            if self._z_input:
+                label = '→ ' + self._z_input
+                w = draw.textlength(label, font=_TITLE_FONT)
+                draw.text((WIDTH - w - 8, TITLE_POS[1]), label,
+                          fill=(255, 220, 40), font=_TITLE_FONT)
         blit_to_canvas(self, overlays)
 
     def _blit_dissection(self, scale, r_ref, title):
@@ -820,9 +865,8 @@ class AtomViewApp:
         """
         return dissection_plan(self.preset)
 
-    @staticmethod
-    def _random_z_excluding(current):
-        """Random Z in [1, MAX_Z], guaranteed != current (device
+    def _random_z_excluding(self, current):
+        """Random Z in [1, _max_z], guaranteed != current (device
         randomIndexExcluding(z-1, kMaxZ)+1).
         """
         offset = 1 + random.randrange(self._max_z - 1)
@@ -992,7 +1036,8 @@ class AtomViewApp:
             return
 
         scale = self._effective_base_scale() + self._effective_zoom_amplitude() * math.sin(self.zoom_angle)
-        render_frame(self.buf, self.preset, self.angle, self.tilt_angle, self.roll_angle, scale)
+        render_frame(self.buf, self.preset, self.angle, self.tilt_angle, self.roll_angle, scale,
+                     buzz_fraction=cloud_common.BUZZ_FRACTION)
         self._blit(scale)
 
         advance_rotation(self)
