@@ -139,7 +139,7 @@ MARKER_COLOR_FRONT = (255, 220, 40)    # rotating toward the viewer -- a warm
                                         # color shift reads much stronger than
                                         # a gray brightness change
 _MARKER_FONT = ImageFont.load_default(size=MARKER_FONT_SIZE)  # loaded once, not per frame
-_TITLE_FONT = ImageFont.load_default(size=TITLE_FONT_SIZE)
+# _TITLE_FONT is initialised after find_unicode_font() is defined (see below).
 
 # --- Nucleus ----------------------------------------------------------------
 # 14px, not the device's 7: the PC buffer is 480x480 = 2x the 240 panel, so 2x
@@ -237,6 +237,11 @@ def find_unicode_font(size):
             except OSError:
                 continue
     return None
+
+
+# Use a Unicode-capable TTF so ℓ (U+2113) and other non-ASCII chars render
+# correctly; fall back to PIL's default bitmap font (ASCII-only) if none found.
+_TITLE_FONT = find_unicode_font(TITLE_FONT_SIZE) or ImageFont.load_default(size=TITLE_FONT_SIZE)
 
 
 def draw_nucleus(buf):
