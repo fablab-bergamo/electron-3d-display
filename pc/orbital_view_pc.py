@@ -60,7 +60,7 @@ N_POINTS = 20000  # more than the device's 3000 -- a desktop CPU has the headroo
 # Set False to disable point-turnover (resample) or per-frame "buzz" flicker,
 # to inspect the raw rotation math in isolation.
 DEBUG_DISABLE_CULL = False
-DEBUG_DISABLE_BUZZ = True
+DEBUG_DISABLE_BUZZ = False
 
 _NUDGE_DIRECTION_STEP = {'R': 1, 'U': 1, 'L': -1, 'D': -1}
 
