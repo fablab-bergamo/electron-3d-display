@@ -45,7 +45,7 @@ from viewer_common import (
     INTRO_START_SCALE_FACTOR, INTRO_FRAMES,
     SWITCH_START_SCALE_FACTOR, SWITCH_TRANSITION_FRAMES,
     ZOOM_EXCURSION_EASE_FRAMES_BASE,
-    TITLE_POS, SUBTITLE_POS,
+    TITLE_POS, SUBTITLE_POS, _TITLE_FONT,
     render_frame, draw_orbit_marker, draw_scale_bar,
     advance_rotation, fly_over, maybe_zoom_excursion, blit_to_canvas,
     find_unicode_font,
@@ -90,15 +90,36 @@ EQ_LINES = ("\u0124\u03c8 = E\u03c8",                       # H-hat psi = E psi
 EQ_LINES_ASCII = ("H psi = E psi",
                   "psi_nlm = R_nl(r) . P_l^|m|(theta) . trig(m phi)")
 EQ_COLOR = (210, 210, 220)
-EQ_FONT_SIZE = 30
 EQ_LINE_GAP = 12
 REVEAL_FONT_SIZE = 64
 REVEAL_COLOR = (255, 255, 255)
 REVEAL_STAGE_HOLD_S = 0.55   # per-stage real-time hold, matches kOrbitalIntroStageHoldMs
 REVEAL_FINAL_EXTRA_HOLD_S = 0.5  # extra pause once the full "n l m" reveal is on screen, so it's readable
-_EQ_BLOCK_H = 2 * int(EQ_FONT_SIZE * 1.4) + EQ_LINE_GAP
-EQ_Y = (HEIGHT - _EQ_BLOCK_H) // 2   # equation vertically centered
-REVEAL_Y = EQ_Y + _EQ_BLOCK_H + 40   # numbers stacked below it
+_EQ_MARGIN_X = 16  # minimum horizontal clearance each side
+
+# EQ_Y / REVEAL_Y are now computed per-instance (see OrbitalViewApp.__init__)
+# since the chosen font size (and thus block height) isn't known until the
+# font is loaded. The module-level values below are kept as safe fallbacks
+# only; they are overridden in __init__.
+_EQ_FONT_SIZE_FALLBACK = 18
+_EQ_BLOCK_H_FALLBACK = 2 * int(_EQ_FONT_SIZE_FALLBACK * 1.4) + EQ_LINE_GAP
+EQ_Y_FALLBACK = (HEIGHT - _EQ_BLOCK_H_FALLBACK) // 2
+REVEAL_Y_FALLBACK = EQ_Y_FALLBACK + _EQ_BLOCK_H_FALLBACK + 40
+
+
+def _find_fitting_eq_font(max_width):
+    """Largest font size (from a descending candidate list) at which the
+    longest EQ_LINE fits within `max_width` pixels. Returns (font, size),
+    or (None, 0) if no Greek-capable font is installed.
+    """
+    probe = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+    for size in (30, 26, 22, 20, 18, 16, 14):
+        font = find_unicode_font(size)
+        if font is None:
+            continue
+        if all(probe.textlength(line, font=font) <= max_width for line in EQ_LINES):
+            return font, size
+    return None, 0
 
 # --- Idle auto-advance ------------------------------------------------------
 # Port of the device's kIdleJumpUs (60s): with no input for 60s, jump to a
@@ -223,12 +244,19 @@ class OrbitalViewApp:
         self.zoom_excursion_countdown = _next_zoom_excursion_countdown()
         self.last_activity = time.time()  # idle auto-advance clock (see _tick())
 
-        # Fonts for the quantum-number reveal: a Greek-capable TTF when one is
-        # installed, default PIL font otherwise (reveal text is ASCII-only so
-        # the default is a fine fallback there; the equation backdrop falls
-        # back to ASCII transliteration -- see _render_reveal_stage()).
-        self._eq_font = find_unicode_font(EQ_FONT_SIZE)
+        # Fonts for the quantum-number reveal: pick the largest eq font size
+        # that fits all EQ_LINES within the canvas width, so the equations are
+        # never clipped regardless of window size. reveal text is ASCII-only so
+        # the default PIL font is a fine fallback there.
+        self._eq_font, self._eq_font_size = _find_fitting_eq_font(WIDTH - 2 * _EQ_MARGIN_X)
         self._reveal_font = find_unicode_font(REVEAL_FONT_SIZE) or ImageFont.load_default(size=REVEAL_FONT_SIZE)
+        # EQ_Y / REVEAL_Y depend on the chosen font size -- compute per-instance.
+        if self._eq_font_size > 0:
+            _eq_block_h = 2 * int(self._eq_font_size * 1.4) + EQ_LINE_GAP
+        else:
+            _eq_block_h = _EQ_BLOCK_H_FALLBACK
+        self._eq_y = (HEIGHT - _eq_block_h) // 2
+        self._reveal_y = self._eq_y + _eq_block_h + 40
 
         fly_over(self, self.preset.base_scale * INTRO_START_SCALE_FACTOR, self.preset.base_scale,
                  ORBITAL_INTRO_FRAMES)
@@ -283,9 +311,9 @@ class OrbitalViewApp:
             # breathing/excursions) -> px per picometer, so the bar always
             # reflects the camera's current zoom, not just the resting one.
             draw_scale_bar(draw, scale / cloud_common.PM_PER_BOHR, "pm")
-            draw.text(TITLE_POS, self.preset.title, fill=(255, 255, 255))
+            draw.text(TITLE_POS, self.preset.title, fill=(255, 255, 255), font=_TITLE_FONT)
             if extra_text:
-                draw.text(SUBTITLE_POS, extra_text, fill=(255, 255, 255))
+                draw.text(SUBTITLE_POS, extra_text, fill=(255, 255, 255), font=_TITLE_FONT)
         blit_to_canvas(self, overlays)
 
     def _draw_bounding_sphere_and_marker(self, draw, scale):
@@ -321,20 +349,21 @@ class OrbitalViewApp:
         draw = ImageDraw.Draw(image)
 
         if self._eq_font is not None:
+            line_h = int(self._eq_font_size * 1.4) + EQ_LINE_GAP
             for y, line in enumerate(EQ_LINES):
                 w = draw.textlength(line, font=self._eq_font)
-                draw.text(((WIDTH - w) / 2, EQ_Y + y * (int(EQ_FONT_SIZE * 1.4) + EQ_LINE_GAP)),
+                draw.text(((WIDTH - w) / 2, self._eq_y + y * line_h),
                           line, font=self._eq_font, fill=EQ_COLOR)
         else:
             # No Greek-capable font installed -- transliterated fallback with
             # the default PIL font keeps the backdrop recognizable anyway.
             for y, line in enumerate(EQ_LINES_ASCII):
                 w = draw.textlength(line)
-                draw.text(((WIDTH - w) / 2, EQ_Y + y * (int(EQ_FONT_SIZE * 1.4) + EQ_LINE_GAP)),
+                draw.text(((WIDTH - w) / 2, self._eq_y + y * (int(14 * 1.4) + EQ_LINE_GAP)),
                           line, fill=EQ_COLOR)
 
         w = draw.textlength(text, font=self._reveal_font)
-        draw.text(((WIDTH - w) / 2, REVEAL_Y), text, font=self._reveal_font, fill=REVEAL_COLOR)
+        draw.text(((WIDTH - w) / 2, self._reveal_y), text, font=self._reveal_font, fill=REVEAL_COLOR)
 
         self.buf[:] = image.tobytes()
         blit_to_canvas(self, lambda d: None)  # no overlays -- full-screen reveal frame

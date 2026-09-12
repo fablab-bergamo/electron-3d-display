@@ -210,7 +210,7 @@ _SCALE_BAR_FONT = ImageFont.load_default(size=SCALE_BAR_FONT_SIZE)  # loaded onc
 
 # --- HUD text positions -------------------------------------------------------
 TITLE_POS = (2, 2)
-SUBTITLE_POS = (2, 12)
+SUBTITLE_POS = (2, 2 + TITLE_FONT_SIZE + 2)  # directly below the title line
 
 
 def _next_zoom_excursion_countdown():
