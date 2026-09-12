@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Electronic Atoms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#F3F4FA;
+    --surface:#FFFFFF;
+    --surface-2:#ECEBFC;
+    --border:#D9DBEA;
+    --border-strong:#B9BCD9;
+    --text:#1B1E2E;
+    --text-muted:#5A5F78;
+    --accent:#4B4FD1;
+    --accent-soft:#EDEDFB;
+    --phase-pos:#D22828;
+    --phase-neg:#2850D2;
+    --shell-1:#8C3CFF; --shell-2:#466EFF; --shell-3:#3CC8DC; --shell-4:#5ADC5A;
+    --shell-5:#FFD23C; --shell-6:#FF8C28; --shell-7:#E63C3C; --shell-x:#A0A0A0;
+    --font-display:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --font-math:'STIX Two Text', 'Cambria Math', Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0C0E1A; --surface:#141727; --surface-2:#1B1E38;
+      --border:#2B2F4C; --border-strong:#3C4166;
+      --text:#E7E8F5; --text-muted:#9CA0C4;
+      --accent:#9497FF; --accent-soft:#232752;
+      --phase-pos:#E05555; --phase-neg:#5F7FE8;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C0E1A; --surface:#141727; --surface-2:#1B1E38;
+    --border:#2B2F4C; --border-strong:#3C4166;
+    --text:#E7E8F5; --text-muted:#9CA0C4;
+    --accent:#9497FF; --accent-soft:#232752;
+    --phase-pos:#E05555; --phase-neg:#5F7FE8;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:var(--font-display);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:840px; margin:0 auto; padding:48px 24px 80px;}
+
+  header.page h1{
+    font-family:var(--font-display); font-weight:700; font-size:clamp(1.7rem,4vw,2.35rem);
+    letter-spacing:-0.01em; margin:0 0 10px; text-wrap:balance;
+  }
+  header.page .lede{
+    font-family:var(--font-math); font-size:1.05rem; line-height:1.6; color:var(--text-muted);
+    max-width:66ch; margin:0 0 22px;
+  }
+  .scope-note{
+    display:flex; gap:12px; align-items:flex-start;
+    background:var(--accent-soft); border:1px solid var(--border);
+    border-radius:10px; padding:14px 16px; margin-bottom:8px;
+  }
+  .scope-note .mark{
+    font-family:var(--font-mono); font-weight:600; color:var(--accent);
+    font-size:11px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; padding-top:2px;
+  }
+  .scope-note p{margin:0; font-size:.92rem; line-height:1.55; color:var(--text);}
+  .scope-note code{font-family:var(--font-mono); font-size:.85em; color:var(--accent);}
+  .scope-note a{color:var(--accent); font-weight:600;}
+
+  section.pipeline{margin-top:56px;}
+  section.pipeline h2{
+    font-family:var(--font-display); font-weight:700; font-size:1.45rem;
+    margin:0 0 4px; letter-spacing:-.005em;
+  }
+  section.pipeline .subtitle{
+    font-size:.88rem; color:var(--text-muted); margin:0 0 26px; font-family:var(--font-mono);
+  }
+
+  .flow{display:flex; flex-direction:column; align-items:stretch; max-width:640px; margin:0 auto;}
+
+  .connector{display:flex; flex-direction:column; align-items:center; gap:1px; margin:0 auto; color:var(--accent);}
+  .connector svg{width:18px; height:30px; display:block;}
+  .connector .clabel{
+    font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);
+    letter-spacing:.02em; white-space:nowrap; margin-top:1px;
+  }
+
+  .stage{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:16px 20px 15px; box-shadow:0 1px 2px rgba(20,20,50,.04);
+  }
+  .stage.given{
+    background:var(--surface-2); border-style:dashed; border-color:var(--border-strong);
+    box-shadow:none;
+  }
+  .kicker{
+    font-family:var(--font-mono); font-size:10.5px; font-weight:600; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--accent); margin:0 0 6px;
+  }
+  .given .kicker{color:var(--text-muted);}
+  .stage-title{font-family:var(--font-display); font-weight:600; font-size:1rem; margin:0 0 10px;}
+
+  .fstack{display:flex; flex-direction:column; align-items:center; gap:7px; margin-bottom:10px;}
+  .f{
+    font-family:var(--font-math); font-size:1.02rem; text-align:center;
+    display:block; line-height:1.7;
+  }
+  .f.small{font-size:.86rem; color:var(--text-muted);}
+  .f.bullet{text-align:left;}
+  .given .fstack{align-items:flex-start;}
+  .given .f{text-align:left;}
+
+  .caption{font-size:.86rem; line-height:1.5; color:var(--text-muted); margin:0;}
+  .caption a{color:var(--accent);}
+  .tag{
+    display:inline-block; font-family:var(--font-mono); font-size:10.5px; color:var(--accent);
+    background:var(--accent-soft); border-radius:5px; padding:2px 7px; margin-top:10px;
+  }
+  .given .tag{background:transparent; border:1px solid var(--border-strong); color:var(--text-muted);}
+
+  i.v{font-style:italic; font-family:var(--font-math);}
+  .frac{display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin:0 .12em; line-height:1.15;}
+  .frac .num{padding:0 .15em .1em; border-bottom:1.4px solid currentColor;}
+  .frac .den{padding:.1em .15em 0;}
+  .sqrt{display:inline-flex; align-items:flex-start;}
+  .sqrt::before{content:"\221A"; font-size:1.1em; transform:translateY(1px); margin-right:-1px;}
+  .sqrt .rad{border-top:1.4px solid currentColor; padding:0 .18em;}
+  .cases{display:inline-flex; align-items:center; gap:.4em;}
+  .cases::before{content:"{"; font-size:1.9em; font-weight:300; line-height:.6; transform:scaleY(1.25);}
+  .cases-list{display:flex; flex-direction:column; gap:.12em; font-size:.9em; text-align:left;}
+
+  .split{
+    display:grid; grid-template-columns:1fr 1fr; gap:0; margin-bottom:6px;
+    border:1px solid var(--border); border-radius:10px; overflow:hidden;
+  }
+  .split-half{padding:13px 14px; background:var(--surface);}
+  .split-half:first-child{border-right:1px dashed var(--border-strong);}
+  .split-half .half-label{
+    font-family:var(--font-mono); font-size:10px; font-weight:600; color:var(--text-muted);
+    text-transform:uppercase; letter-spacing:.06em; margin:0 0 8px;
+  }
+  .split-half .f{font-size:.92rem; text-align:left;}
+  .split-share{
+    padding:12px 20px 2px; border-top:1px dashed var(--border-strong);
+    background:var(--surface); text-align:center;
+  }
+  @media (max-width:560px){
+    .split{grid-template-columns:1fr;}
+    .split-half:first-child{border-right:none; border-bottom:1px dashed var(--border-strong);}
+  }
+
+  .note{
+    text-align:center; font-size:.82rem; color:var(--text-muted); font-family:var(--font-mono);
+    margin:14px 0 -4px; padding:8px 14px; border:1px dashed var(--border-strong); border-radius:8px;
+    max-width:520px; margin-left:auto; margin-right:auto;
+  }
+
+  .divider{
+    display:flex; align-items:center; gap:14px; max-width:640px; margin:44px auto 30px;
+    color:var(--text-muted); font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .divider::before, .divider::after{content:""; flex:1; height:1px; background:var(--border-strong);}
+
+  footer.legend{
+    margin-top:64px; padding-top:28px; border-top:1px solid var(--border);
+  }
+  footer.legend h3{
+    font-family:var(--font-display); font-weight:600; font-size:.95rem; margin:0 0 16px;
+    color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; font-size:.78rem;
+  }
+  .legend-grid{display:flex; flex-wrap:wrap; gap:28px 40px; margin-bottom:22px;}
+  .legend-group{display:flex; flex-direction:column; gap:8px;}
+  .legend-group-title{font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-bottom:2px;}
+  .swatch-row{display:flex; align-items:center; gap:8px; font-size:.85rem;}
+  .swatch{width:13px; height:13px; border-radius:3px; flex:none; border:1px solid rgba(0,0,0,.12);}
+  .box-key{display:flex; align-items:center; gap:8px; font-size:.85rem;}
+  .box-key .mini{width:28px; height:16px; border-radius:4px; flex:none;}
+  .mini.given-mini{background:var(--surface-2); border:1.4px dashed var(--border-strong);}
+  .mini.solid-mini{background:var(--surface); border:1.4px solid var(--border);}
+  footer.legend a{color:var(--accent); font-weight:600;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <h1>Multi-Electronic Atoms</h1>
+    <p class="lede">The physics behind every element's electron cloud: what the atomSFE radial tables actually contain, how ground-state electron configuration and Hund's rule drive the cloud's shape, and how effective nuclear charge fills the gap for elements beyond Z = 92.</p>
+    <div class="scope-note">
+      <span class="mark">Scope</span>
+      <p>This document covers the physics models the atom pipeline rests on — what <i>u</i>(<i>r</i>) means, why full shells are isotropic, why Hund's rule applies to partial shells, and how Slater's effective-nuclear-charge substitution works for Z > 92. The step-by-step computation (which code runs, in what order) is in <a href="tables_to_pointclouds.html">Tables to Point Clouds</a>; how the blobs are built and flashed is in <a href="tables_to_bin.html">Tables to BIN</a>; the technical status and validation numbers live in <a href="ATOMS.md">ATOMS.md</a>.</p>
+    </div>
+  </header>
+
+  <!-- ========================= SECTION 1: u(r) ========================= -->
+  <section class="pipeline">
+    <h2>What the radial tables encode — <i>u</i>(<i>r</i>) = <i>r</i> · <i>R</i>(<i>r</i>)</h2>
+    <p class="subtitle">pc/hfs_atomsfe.py · data/hfs_tables.bin — one row per occupied (n, ℓ) subshell, Z = 1..92</p>
+
+    <div class="flow">
+
+      <div class="stage given">
+        <p class="kicker">Given — the N-electron problem</p>
+        <div class="fstack">
+          <div class="f">Ĥ Ψ = <i class="v">E</i> Ψ, &nbsp; Ĥ = Σ<sub><i class="v">i</i></sub> (−<span class="frac"><span class="num">1</span><span class="den">2</span></span>∇<sub><i class="v">i</i></sub>² − <span class="frac"><span class="num"><i class="v">Z</i></span><span class="den"><i class="v">r<sub>i</sub></i></span></span>) + Σ<sub><i class="v">i</i>&lt;<i class="v">j</i></sub> <span class="frac"><span class="num">1</span><span class="den"><i class="v">r<sub>ij</sub></i></span></span></div>
+        </div>
+        <p class="caption">The exact many-body Hamiltonian couples all N electrons together via the 1/r<sub>ij</sub> repulsion. It is not separable — no analytic solution exists for Z > 1. All units are Hartree atomic units (ℏ = m<sub>e</sub> = e = 1).</p>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">Kohn–Sham DFT</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">1 · Kohn–Sham mean-field reduction</p>
+        <div class="fstack">
+          <div class="f">[−<span class="frac"><span class="num">1</span><span class="den">2</span></span>∇² + <i class="v">V</i><sub>eff</sub>[<i class="v">ρ</i>](<i class="v"><b>r</b></i>)] φ<sub><i class="v">i</i></sub>(<i class="v"><b>r</b></i>) = <i class="v">ε<sub>i</sub></i> φ<sub><i class="v">i</i></sub>(<i class="v"><b>r</b></i>)</div>
+          <div class="f"><i class="v">ρ</i>(<i class="v"><b>r</b></i>) = Σ<sub><i class="v">i</i></sub> <i class="v">n<sub>i</sub></i> |φ<sub><i class="v">i</i></sub>(<i class="v"><b>r</b></i>)|²</div>
+        </div>
+        <p class="caption">Kohn–Sham DFT replaces the interacting N-electron problem with N independent single-particle equations in a self-consistent effective potential V<sub>eff</sub>. The equations must be solved iteratively (SCF loop) because V<sub>eff</sub> depends on the density ρ, which depends on the orbitals φ<sub>i</sub>. SPARC-atomSFE converges this loop using spectral finite elements with LDA_SVWN exchange-correlation.</p>
+        <span class="tag">pc/_atomsfe_vendor / pc/hfs_atomsfe.py</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">V<sub>eff</sub> = V<sub>nuc</sub> + V<sub>H</sub> + V<sub>xc</sub></span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">2 · The effective potential — three contributions</p>
+        <div class="fstack">
+          <div class="f"><i class="v">V</i><sub>nuc</sub>(<i class="v">r</i>) = −<span class="frac"><span class="num"><i class="v">Z</i></span><span class="den"><i class="v">r</i></span></span> &nbsp;&nbsp; <span class="f small">(nuclear attraction, dominant at small <i class="v">r</i>)</span></div>
+          <div class="f"><i class="v">V</i><sub>H</sub>(<i class="v">r</i>) = ∫ <span class="frac"><span class="num"><i class="v">ρ</i>(<i class="v"><b>r</b></i>′)</span><span class="den">|<i class="v"><b>r</b></i>−<i class="v"><b>r</b></i>′|</span></span> d³<i class="v">r</i>′ &nbsp;&nbsp; <span class="f small">(Hartree: mean electron-electron repulsion)</span></div>
+          <div class="f"><i class="v">V</i><sub>xc</sub>(<i class="v">r</i>) = <span class="frac"><span class="num">δ <i class="v">E</i><sub>xc</sub>[<i class="v">ρ</i>]</span><span class="den">δ <i class="v">ρ</i>(<i class="v">r</i>)</span></span> &nbsp;&nbsp; <span class="f small">(LDA Slater–Vosko–Wilk–Nusair exchange-correlation)</span></div>
+        </div>
+        <p class="caption">V<sub>nuc</sub> is exact and analytic. V<sub>H</sub> is computed self-consistently on the radial grid (Poisson equation). V<sub>xc</sub> is the only approximation: LDA_SVWN treats the exchange-correlation energy density as that of a uniform electron gas at the local density ρ(r) — accurate for core shells, slightly over-delocalizing for valence orbitals (the standard LDA self-interaction error, which is why the LDA valence radii are larger than Hartree-Fock Clementi-Raimondi values).</p>
+        <span class="tag">LDA_SVWN — local density approximation</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">spherical atom</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">3 · Spherical symmetry — radial reduction and u(r)</p>
+        <div class="fstack">
+          <div class="f">φ<sub><i class="v">n,ℓ,m</i></sub>(<i class="v">r</i>,<i class="v">θ</i>,<i class="v">φ</i>) = R<sub><i class="v">n,ℓ</i></sub>(<i class="v">r</i>) · Y<sub><i class="v">ℓ</i></sub><sup><i class="v">m</i></sup>(<i class="v">θ</i>,<i class="v">φ</i>)</div>
+          <div class="f">substitute &nbsp; <i class="v">u</i><sub><i class="v">n,ℓ</i></sub>(<i class="v">r</i>) = <i class="v">r</i> · R<sub><i class="v">n,ℓ</i></sub>(<i class="v">r</i>)</div>
+          <div class="f">[−<span class="frac"><span class="num">1</span><span class="den">2</span></span><span class="frac"><span class="num">d²</span><span class="den">d<i class="v">r</i>²</span></span> + <span class="frac"><span class="num"><i class="v">ℓ</i>(<i class="v">ℓ</i>+1)</span><span class="den">2<i class="v">r</i>²</span></span> + <i class="v">V</i><sub>eff</sub>(<i class="v">r</i>)] <i class="v">u</i>(<i class="v">r</i>) = <i class="v">ε</i> · <i class="v">u</i>(<i class="v">r</i>)</div>
+          <div class="f small">boundary conditions: <i class="v">u</i>(0) = 0, &nbsp; <i class="v">u</i>(<i class="v">r</i>) → 0 as <i class="v">r</i> → ∞</div>
+        </div>
+        <p class="caption">The angular factor Y<sub>ℓ</sub><sup>m</sup> separates exactly for a spherical V<sub>eff</sub>(r). The substitution u = r·R eliminates the first-derivative term from the radial equation, turning it into a standard 1D Schrödinger form — the same shape as a particle in a potential, easy to solve numerically with finite elements or Numerov integration. The ℓ(ℓ+1)/(2r²) term is the centrifugal barrier: it pushes electrons with higher angular momentum away from the nucleus (p and d orbitals have no probability at r = 0).</p>
+        <span class="tag">1D Schrödinger form — basis of SPARC-atomSFE</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">u(r) on a grid</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">4 · Why u(r)² is the probability we integrate</p>
+        <div class="fstack">
+          <div class="f">∫ |φ|² d³<i class="v">r</i> = ∫<sub>0</sub><sup>∞</sup> <i class="v">r</i>² |R(<i class="v">r</i>)|² d<i class="v">r</i> · ∫ |Y<sub><i class="v">ℓ</i></sub><sup><i class="v">m</i></sup>|² dΩ = ∫<sub>0</sub><sup>∞</sup> <i class="v">u</i>(<i class="v">r</i>)² d<i class="v">r</i></div>
+          <div class="f"><i class="v">P</i>(<i class="v">r</i>) = <i class="v">u</i>(<i class="v">r</i>)² &nbsp; — radial probability density</div>
+          <div class="f">normalization: &nbsp; ∫<sub>0</sub><sup>∞</sup> <i class="v">u</i>(<i class="v">r</i>)² d<i class="v">r</i> = 1</div>
+        </div>
+        <p class="caption">u(r)² already folds in the r² Jacobian of spherical coordinates — the same reason the hydrogen tables use [r·R(r)]² as their radial weight. The table row for a given (Z, n, ℓ) is therefore directly proportional to the probability of finding that subshell's electron at radius r; integrating it gives the inverse-CDF used for sampling. No extra r² factor is needed at draw time.</p>
+        <span class="tag">radial probability density — same as [r·R(r)]² in the hydrogen pipeline</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">grid choice</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">5 · The log-uniform radial grid</p>
+        <div class="fstack">
+          <div class="f"><i class="v">r<sub>i</sub></i> = <i class="v">r</i><sub>min</sub> · (<span class="frac"><span class="num"><i class="v">r</i><sub>max</sub></span><span class="den"><i class="v">r</i><sub>min</sub></span></span>)<sup><i class="v">i</i>/(<i class="v">N</i>−1)</sup>, &nbsp; <i class="v">r</i><sub>min</sub> = 10<sup>−6</sup> Bohr, &nbsp; <i class="v">r</i><sub>max</sub> = 100 Bohr</div>
+          <div class="f small"><i class="v">N</i> = 2001 in the full npz &nbsp;→&nbsp; 128 in the device blob (log-subsampled)</div>
+        </div>
+        <p class="caption">A log-uniform grid has a constant ratio between consecutive steps — Δr/r is constant — instead of a constant absolute step Δr. This is essential: the wavefunction oscillates on a scale of ~10⁻³ Bohr near a heavy nucleus (where u(r) rises sharply from zero), and decays exponentially over tens of Bohr in the valence region. A linear grid would either miss the core or waste 99% of its points on the tail. At 128 device points, the log-spacing keeps the mode radius accurate to better than 0.1% (measured against the 2001-point reference).</p>
+        <span class="tag">log-uniform spacing — r_min = 1e-6, r_max = 100 Bohr</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+      </div>
+
+      <div class="stage given">
+        <p class="kicker">Deliverable — hfs_tables.bin rows</p>
+        <div class="fstack">
+          <div class="f bullet">• One row <i class="v">u</i>(<i class="v">r</i>)[128] per occupied (Z, <i class="v">n</i>, <i class="v">ℓ</i>) subshell, Z = 1..92</div>
+          <div class="f bullet">• Shared log-uniform grid <i class="v">r</i>[128] (Bohr), one copy for all Z</div>
+          <div class="f bullet">• Header: gridSize = 128, elementCount = 92, subshellCount = 915</div>
+        </div>
+        <p class="caption">The table is indexed by Z (element offset + count) and then by subshell (n, ℓ). To get R(r), divide each row element by the corresponding r: R(r) = u(r)/r. The angular part Y<sub>ℓ</sub><sup>m</sup> is not in the table — it is shared across all Z and n, and is handled by the compile-time angular library (see <a href="coefficients_to_tables.html">Coefficients to Tables</a> and the atom pipeline's step 2).</p>
+        <span class="tag">data/hfs_tables.bin · micropython/hfs_tables.bin</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================= SECTION 2: Pipeline ========================= -->
+  <section class="pipeline">
+    <h2>Building the atom cloud from tables — step by step</h2>
+    <p class="subtitle">micropython/atom_cloud.py · src/physics/atom_cloud.cpp · slater.py — runs once per Z, not per frame</p>
+
+    <div class="flow">
+
+      <div class="stage given">
+        <p class="kicker">Given — tables for this Z</p>
+        <div class="fstack">
+          <div class="f bullet">• hfs_tables.bin rows <i class="v">u</i>(<i class="v">r</i>) for (Z, <i class="v">n</i>, <i class="v">ℓ</i>), Z ≤ 92</div>
+          <div class="f bullet">• OrbitalAngularTables(<i class="v">ℓ</i>, <i class="v">m</i>), <i class="v">ℓ</i> ≤ 3 — compile-time, independent of Z</div>
+          <div class="f bullet">• Calibration factor <i class="v">κ<sub>Z</sub></i> — one per element, generated by <code>atom_size_calib_gen.py</code></div>
+        </div>
+        <span class="tag">hfs_tables.bin / angular_library.h / atom_size_calib.h</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">Z</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">1 · Ground-state electron configuration</p>
+        <div class="fstack">
+          <div class="f">Madelung order: fill in ascending (<i class="v">n</i>+<i class="v">ℓ</i>), break ties by lower <i class="v">n</i></div>
+          <div class="f small">1<i class="v">s</i>, 2<i class="v">s</i>, 2<i class="v">p</i>, 3<i class="v">s</i>, 3<i class="v">p</i>, 4<i class="v">s</i>, 3<i class="v">d</i>, 4<i class="v">p</i>, 5<i class="v">s</i>, 4<i class="v">d</i>, 5<i class="v">p</i>, 6<i class="v">s</i>, 4<i class="v">f</i>, 5<i class="v">d</i>, …</div>
+          <div class="f"><i class="v">Z</i> electrons &nbsp;→&nbsp; {(<i class="v">n</i>, <i class="v">ℓ</i>, occ)} &nbsp; with real exceptions applied</div>
+        </div>
+        <p class="caption">Madelung's rule gives the right filling order for most elements — it is a consequence of orbital energies being set more by n+ℓ than by n alone, due to electron-electron repulsion pushing inner shells inward. Known exceptions (Cr: [Ar]3d⁵4s¹, Cu: [Ar]3d¹⁰4s¹, and ~20 others for lanthanides and actinides) are substituted from a hard-coded table. Each subshell holds at most 2(2ℓ+1) electrons.</p>
+        <span class="tag">electronConfiguration() / _CONFIG_EXCEPTIONS</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">subshells {n, ℓ, occ}</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">2 · Unsöld's theorem → full shells are isotropic</p>
+        <div class="fstack">
+          <div class="f">Σ<sub><i class="v">m</i>=−<i class="v">ℓ</i></sub><sup><i class="v">ℓ</i></sup> |Y<sub><i class="v">ℓ</i></sub><sup><i class="v">m</i></sup>(<i class="v">θ</i>,<i class="v">φ</i>)|² = <span class="frac"><span class="num">2<i class="v">ℓ</i>+1</span><span class="den">4<i class="v">π</i></span></span> &nbsp; — a constant, independent of direction</div>
+          <div class="f">full shell (occ = 2(2<i class="v">ℓ</i>+1)): &nbsp; <i class="v">ρ</i>(<i class="v">r</i>,<i class="v">θ</i>,<i class="v">φ</i>) ∝ <i class="v">R</i><sub><i class="v">n,ℓ</i></sub>(<i class="v">r</i>)² · <span class="frac"><span class="num">2<i class="v">ℓ</i>+1</span><span class="den">4<i class="v">π</i></span></span> &nbsp; — spherical</div>
+          <div class="f small">→ sample with uniform random direction on the sphere, no angular table needed</div>
+        </div>
+        <p class="caption">Unsöld's theorem (1927) is an exact result of spherical harmonics: when all 2ℓ+1 magnetic quantum numbers are equally occupied (as in a full subshell), the total angular density is a constant. The neon 2p⁶ shell is exactly spherical; the nitrogen 2p³ half-shell (one electron per m ∈ {−1, 0, +1}) is also spherical by the same argument — the three real spherical harmonics p<sub>x</sub>, p<sub>y</sub>, p<sub>z</sub> together cover all three spatial directions equally. Carbon's 2p² is not spherical and must use Hund's rule instead.</p>
+        <span class="tag">sampleIsotropicPoint() / Unsöld 1927</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">partial subshell?</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">3 · Hund's rule for partial subshells</p>
+        <div class="fstack">
+          <div class="f">assign one electron to each <i class="v">m</i> = −<i class="v">ℓ</i>, −<i class="v">ℓ</i>+1, …, <i class="v">ℓ</i> before pairing</div>
+          <div class="f small">example: C 2p² &nbsp;→&nbsp; <i class="v">m</i>=−1 and <i class="v">m</i>=0 occupied &nbsp;→&nbsp; anisotropic (no spherical symmetry)</div>
+          <div class="f small">example: N 2p³ &nbsp;→&nbsp; all three <i class="v">m</i> singly occupied &nbsp;→&nbsp; spherical (half-Unsöld)</div>
+        </div>
+        <p class="caption">Hund's first rule (maximum multiplicity) says electrons in a partially filled subshell prefer parallel spins, which forces them onto different orbitals. In practice this means each occupied m gets its own angular density profile — p<sub>x</sub>, p<sub>y</sub>, p<sub>z</sub> for p², p³; d<sub>z²</sub>, d<sub>xz</sub>, d<sub>yz</sub>… for d³, etc. Each such orbital is sampled by the standard orbital sampler with the (ℓ, m)'s angular tables, not a uniform sphere. Without this, carbon's 2p² would incorrectly render as a sphere.</p>
+        <span class="tag">hundFillM() / drawingGroups()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">groups {n, ℓ, m, weight}</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">4 · Split the total point budget</p>
+        <div class="fstack">
+          <div class="f"><i class="v">N<sub>g</sub></i> = ⌊<i class="v">N</i> · <i class="v">w<sub>g</sub></i> / Σ<i class="v">W</i>⌋ &nbsp; (weight = electron count for that group)</div>
+          <div class="f small">largest-remainder correction distributes leftovers so Σ <i class="v">N<sub>g</sub></i> = <i class="v">N</i> exactly</div>
+        </div>
+        <p class="caption">N (kAtomNumPoints) is the total point budget for this element. Each drawing group's weight is its electron count — a doubly-occupied full 2p subshell (weight 6) gets three times as many points as a singly-occupied 2s (weight 2). The largest-remainder method prevents the sum from drifting off by one or two points due to floor truncation.</p>
+        <span class="tag">splitCounts()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">N_g per group</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">5 · Pick each group's radial source</p>
+        <div class="split">
+          <div class="split-half">
+            <p class="half-label">Table path — Z ≤ 92</p>
+            <div class="f">look up row <i class="v">u</i>(<i class="v">r</i>) for (Z, <i class="v">n</i>, <i class="v">ℓ</i>)</div>
+            <div class="f" style="font-size:.82rem; margin-top:4px;">R(<i class="v">r</i>) = <i class="v">u</i>(<i class="v">r</i>) / <i class="v">r</i></div>
+          </div>
+          <div class="split-half">
+            <p class="half-label">Fallback — Z > 92</p>
+            <div class="f">Z<sub>eff</sub> from Clementi–Raimondi or Slater+<i class="v">n</i>* (see §3)</div>
+            <div class="f" style="font-size:.82rem; margin-top:4px;">R(<i class="v">r</i>) = R<sup>H</sup><sub><i class="v">n,ℓ</i></sub>(Z<sub>eff</sub>·<i class="v">r</i>)</div>
+          </div>
+        </div>
+        <p class="caption">The table path uses the all-electron Kohn-Sham wavefunction; the fallback uses the hydrogen analytic formula with a rescaled nuclear charge. Both produce an R(r) — the rest of the pipeline is identical from this point.</p>
+        <span class="tag">hfsFindU() / hfsRLookup() / slaterZEff()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">R(r)</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">6 · Build the radial inverse-CDF</p>
+        <div class="fstack">
+          <div class="f">density ∝ [<i class="v">r</i>·R(<i class="v">r</i>)]² = <i class="v">u</i>(<i class="v">r</i>)²</div>
+        </div>
+        <div class="split">
+          <div class="split-half">
+            <p class="half-label">Isotropic group (full subshell)</p>
+            <div class="f">trapezoid-rule CDF directly on the table's log-uniform grid</div>
+          </div>
+          <div class="split-half">
+            <p class="half-label">Oriented group (Hund's rule)</p>
+            <div class="f">re-sample R(<i class="v">r</i>) = <i class="v">u</i>/<i class="v">r</i> at 1001 evenly spaced <i class="v">r</i> ∈ [0, maxR], then CDF on [<i class="v">r</i>·R]²</div>
+          </div>
+        </div>
+        <p class="caption">Both branches integrate the same physical density u(r)². The oriented branch resamples on a linear grid first because the hydrogen angular sampler (which it shares) expects a linear-grid radial CDF — an asymmetry kept deliberately from the Python model. The isotropic branch stays on the log-grid and integrates directly for higher accuracy near r = 0.</p>
+        <span class="tag">buildHfsRadialSamplerIsotropic() / buildHfsRadialSamplerOriented()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">F_r⁻¹</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">7 · Sample this group's N_g points</p>
+        <div class="split">
+          <div class="split-half">
+            <p class="half-label">Isotropic group</p>
+            <div class="f"><i class="v">r</i> = F<sub><i class="v">r</i></sub><sup>−1</sup>(<i class="v">u<sub>r</sub></i>)</div>
+            <div class="f" style="font-size:.86rem;">cos<i class="v">θ</i> = 2<i class="v">u<sub>θ</sub></i>−1 &nbsp; (uniform hemisphere)</div>
+            <div class="f" style="font-size:.86rem;"><i class="v">φ</i> = 2<i class="v">π</i> <i class="v">u<sub>φ</sub></i></div>
+          </div>
+          <div class="split-half">
+            <p class="half-label">Oriented group (m fixed)</p>
+            <div class="f"><i class="v">r</i> = F<sub><i class="v">r</i></sub><sup>−1</sup>(<i class="v">u<sub>r</sub></i>)</div>
+            <div class="f" style="font-size:.86rem;"><i class="v">θ</i> = F<sub><i class="v">θ</i></sub><sup>−1</sup>(<i class="v">u<sub>θ</sub></i>) &nbsp; (angular table)</div>
+            <div class="f" style="font-size:.86rem;"><i class="v">φ</i> = F<sub><i class="v">φ</i></sub><sup>−1</sup>(<i class="v">u<sub>φ</sub></i>) &nbsp; (angular table)</div>
+          </div>
+        </div>
+        <div class="split-share">
+          <div class="f"><i class="v">x</i> = <i class="v">r</i> sin<i class="v">θ</i> cos<i class="v">φ</i> &nbsp;&nbsp; <i class="v">y</i> = <i class="v">r</i> sin<i class="v">θ</i> sin<i class="v">φ</i> &nbsp;&nbsp; <i class="v">z</i> = <i class="v">r</i> cos<i class="v">θ</i></div>
+        </div>
+        <p class="caption" style="margin-top:10px;">The choice between isotropic and oriented was made back in step 3; both arrive here with a radial CDF and convert the same way to Cartesian. Every draw is three uniform randoms + three O(1) table lookups — no rejection loop, no per-point search, deterministic cost.</p>
+        <span class="tag">sampleIsotropicPoint() / sampleOrientedPoint() / XorShift32</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">(x,y,z), all groups merged</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">8 · Identify the valence subshell</p>
+        <div class="fstack">
+          <div class="f"><i class="v">r</i><sub>ref</sub><sup>(<i class="v">n,ℓ</i>)</sup> = P90({<i class="v">r<sub>i</sub></i> ∈ subshell})</div>
+          <div class="f">outer = argmax<sub>(<i class="v">n,ℓ</i>)</sub> <i class="v">r</i><sub>ref</sub> &nbsp; — the spatially outermost subshell</div>
+        </div>
+        <p class="caption">The P90 radius of each subshell's sampled points is a robust proxy for its spatial extent. The outermost subshell by this metric is used as the valence: it drives screen scaling (step 9) and gets the brighter color (step below). Note that for transition metals, 3d lies interior to 4s (Fe: 3d mode ≈ 43 pm, 4s mode ≈ 240 pm) — the P90 correctly identifies 4s as valence even though 3d has higher ℓ.</p>
+        <span class="tag">outerSubshellRRef()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">9 · Color by shell, emphasize valence</p>
+        <div class="fstack">
+          <div class="f">base = shellColor(<i class="v">n</i>) &nbsp; (K→Q spectroscopic palette, <i class="v">n</i> = 1..7)</div>
+          <div class="f">outer subshell: <i class="v">c</i>′ = <i class="v">c</i> + (255−<i class="v">c</i>)·<i class="v">f</i><sub>bright</sub> &nbsp; (pushed toward white)</div>
+          <div class="f">inner subshells: <i class="v">c</i>′ = <i class="v">c</i>·(1−<i class="v">f</i><sub>dim</sub>) &nbsp; (darkened)</div>
+        </div>
+        <p class="caption">Points are emitted in contiguous per-subshell runs (AtomSubshellRange), so the lerp is applied once per subshell, not per point. Without the dim/brighten split, the valence subshell — often a small fraction of the total point budget — would be nearly invisible against the much larger core shells.</p>
+        <span class="tag">kAtomShellRgb[] / colorizeAtomSubshells()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">10 · Scale calibration and screen fit</p>
+        <div class="fstack">
+          <div class="f">(<i class="v">x</i>,<i class="v">y</i>,<i class="v">z</i>) ×= <i class="v">κ<sub>Z</sub></i> &nbsp; — Clementi–Raimondi size correction</div>
+          <div class="f">scale = <span class="frac"><span class="num"><i class="v">p</i><sub>target</sub></span><span class="den"><i class="v">r</i><sub>ref</sub><sup>outer</sup></span></span> &nbsp; (<i class="v">p</i><sub>target</sub> = 96 px = 240 / 2.5)</div>
+        </div>
+        <p class="caption">The κ<sub>Z</sub> factor corrects the LDA over-delocalization: it is the ratio of the Clementi-Raimondi literature valence radius to the LDA table's valence mode radius, computed once offline by atom_size_calib_gen.py. The subsequent divide by r<sub>ref</sub><sup>outer</sup> then normalises all elements to the same on-screen target radius — like the orbital pipeline's P90 auto-zoom — so lithium and uranium are both legible on the 240 px display, at the cost of hiding the real size trend between elements.</p>
+        <span class="tag">kAtomSizeCalibFactor[] / scaleForAtom()</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================= SECTION 3: Z_eff fallback ========================= -->
+  <section class="pipeline">
+    <h2>Hydrogenic fallback — effective nuclear charge (Z > 92)</h2>
+    <p class="subtitle">micropython/slater.py · micropython/slater_cr_zeff.py — also used for --model hydrogenic</p>
+
+    <div class="flow">
+
+      <div class="stage given">
+        <p class="kicker">Given — the hydrogen radial wavefunction</p>
+        <div class="fstack">
+          <div class="f">R<sup>H</sup><sub><i class="v">n,ℓ</i></sub>(<i class="v">r</i>) = (Σ<sub><i class="v">k</i></sub> <i class="v">b<sub>k</sub></i> <i class="v">r</i><sup><i class="v">k</i></sup>) · <i class="v">r</i><sup><i class="v">ℓ</i></sup> · e<sup>−<i class="v">r</i>/<i class="v">n</i></sup></div>
+          <div class="f small">mode of <i class="v">r</i>²|R<sup>H</sup>|² &nbsp;at&nbsp; <i class="v">r</i><sub>max</sub> ≈ <i class="v">n</i>²/<i class="v">Z</i> &nbsp; a₀ &nbsp; (for an s orbital)</div>
+        </div>
+        <p class="caption">The exact analytic solution for Z = 1, N = 1. For Z > 1 it can still be reused by substituting an effective nuclear charge Z<sub>eff</sub> &lt; Z in place of 1 — which compresses the wavefunction by a factor of Z<sub>eff</sub>, moving r<sub>max</sub> to ≈ n²/Z<sub>eff</sub> a₀. The rest of the pipeline (CDF build, point sampling) is unchanged.</p>
+        <span class="tag">orbitals.py / orbitals.h — the validated hydrogen engine</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">choose Z_eff source</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">1 · Clementi–Raimondi table (Z ≤ 54, primary source)</p>
+        <div class="fstack">
+          <div class="f">Z<sub>eff</sub><sup>CR</sup>(<i class="v">Z</i>, <i class="v">n</i>, <i class="v">ℓ</i>) — published Hartree-Fock SCF values, Z = 1..54</div>
+          <div class="f small">source: Clementi &amp; Raimondi 1963 (Z ≤ 36); Clementi, Raimondi &amp; Reinhardt 1967 (Z = 37..54)</div>
+        </div>
+        <p class="caption">Clementi-Raimondi Z<sub>eff</sub> values are obtained by fitting the hydrogen-like wavefunction to the actual Hartree-Fock SCF orbital — they are therefore the best possible nuclear charge to use with the analytic hydrogen formula. Their advantage over Slater's rules is significant for the p-block (error drops from ~5% to &lt;3% for period 2 p states). They cover all occupied subshells of elements 1 to 54. Beyond that, no published 3-parameter fit exists in this project's scope, so Slater's rules take over.</p>
+        <span class="tag">slater_cr_zeff.py / z_eff_cr()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">Z > 54: Slater's rules</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">2 · Slater's shielding rules (Z > 54)</p>
+        <div class="fstack">
+          <div class="f">group electrons: [1<i class="v">s</i>][2<i class="v">s</i>,2<i class="v">p</i>][3<i class="v">s</i>,3<i class="v">p</i>][3<i class="v">d</i>][4<i class="v">s</i>,4<i class="v">p</i>][4<i class="v">d</i>][4<i class="v">f</i>]…</div>
+          <div class="f">σ = <span class="cases"><span class="cases-list"><div>0.30 per electron &nbsp; (same 1<i class="v">s</i> group)</div><div>0.35 per electron &nbsp; (same group, other than 1<i class="v">s</i>)</div><div>0.85 per electron &nbsp; (one group below, <i class="v">s</i>/<i class="v">p</i> subshell)</div><div>1.00 per electron &nbsp; (two or more groups below)</div></span></span></div>
+          <div class="f">Z<sub>eff</sub> = <i class="v">Z</i> − Σ σ</div>
+        </div>
+        <p class="caption">Slater's rules (1930) capture the dominant physics of shielding: inner-core electrons (two or more groups below) screen the nuclear charge nearly completely, while electrons in the same subshell only partially screen each other (0.35, not 1.00), because they occupy the same spatial region rather than surrounding the nucleus. The d/f rule (1.00 for one group below) is a Slater-specific choice that slightly overestimates shielding for d electrons compared to the Clementi-Raimondi fit, but is simple and close enough for the fallback regime.</p>
+        <span class="tag">slater.z_eff() / shielding constants 0.30 / 0.35 / 0.85 / 1.00</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">n ≥ 4? apply n* correction</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">3 · The n* correction for outer shells (n ≥ 4)</p>
+        <div class="fstack">
+          <div class="f"><i class="v">n</i>* = <span class="cases"><span class="cases-list"><div>3.7 &nbsp; (<i class="v">n</i>=4)</div><div>4.0 &nbsp; (<i class="v">n</i>=5)</div><div>4.2 &nbsp; (<i class="v">n</i>=6)</div><div>4.4 &nbsp; (<i class="v">n</i>=7)</div></span></span></div>
+          <div class="f">Z<sub>eff,used</sub> = Z<sub>eff</sub> · <span class="frac"><span class="num"><i class="v">n</i>*</span><span class="den"><i class="v">n</i></span></span></div>
+        </div>
+        <p class="caption">The hydrogen radial wavefunction's mode radius scales as n² / Z. But Slater's Z<sub>eff</sub> was derived assuming the hydrogenic n is the real principal quantum number. For valence electrons in period 4 and beyond, the wavefunction must be orthogonal to the filled inner shells — this pushes the outer lobe inward. Slater introduced an "effective quantum number" n* &lt; n to account for this: replacing n with n* in the mode-radius formula gives a smaller (more physical) radius. The code applies this as a Z<sub>eff</sub> rescaling (equivalent to n → n*) to keep the radial engine unchanged.</p>
+        <span class="tag">slater.n_star() / z_eff_radial()</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+        <span class="clabel">Z_eff (corrected)</span>
+      </div>
+
+      <div class="stage">
+        <p class="kicker">4 · The variable substitution r → Z_eff · r</p>
+        <div class="fstack">
+          <div class="f">R<sub><i class="v">n,ℓ</i></sub>(<i class="v">r</i>; Z<sub>eff</sub>) = R<sup>H</sup><sub><i class="v">n,ℓ</i></sub>(Z<sub>eff</sub> · <i class="v">r</i>)</div>
+          <div class="f small">mode of <i class="v">r</i>²|R|² at &nbsp; <i class="v">r</i><sub>max</sub> ≈ <i class="v">n</i>² / Z<sub>eff</sub> &nbsp; a₀ &nbsp; (or <i class="v">n</i>*² / Z<sub>eff</sub> with the correction)</div>
+        </div>
+        <p class="caption">The substitution contracts all distances by a factor of Z<sub>eff</sub> — the orbital shape (number of radial nodes, angular lobes) is unchanged, only the scale shrinks. In code this means passing z_eff as a multiplicative factor into init_orbital_sampler() or buildRadialSamplerRuntime(), which applies it when evaluating R(r) — the function orbitals.py itself is never modified and remains the single validated source of the hydrogenic math. One Z<sub>eff</sub> per subshell (not per individual electron) is the standard Slater mean-field approximation.</p>
+        <span class="tag">init_orbital_sampler(z_eff=…) / buildRadialSamplerRuntime(zEff)</span>
+      </div>
+
+      <div class="connector">
+        <svg viewBox="0 0 18 30"><line x1="9" y1="1" x2="9" y2="21" stroke="currentColor" stroke-width="2"/><polygon points="9,29 3,18 15,18" fill="currentColor"/></svg>
+      </div>
+
+      <div class="stage given">
+        <p class="kicker">Deliverable — R(r; Z_eff) for the fallback pipeline</p>
+        <div class="fstack">
+          <div class="f">same R(<i class="v">r</i>) interface as the table path: enters the pipeline at step 6 (CDF build)</div>
+        </div>
+        <p class="caption">The fallback degrades gracefully: on a board where uploadfs was never run (no hfs_tables.bin on SPIFFS), hfsFindU() returns nullptr and the entire cloud is drawn with hydrogenic Z<sub>eff</sub> radii — visually reasonable, physically less accurate, never a crash. For Z > 92 the fallback is also the only path available regardless of model choice.</p>
+        <span class="tag">hfsFindU() returning nullptr → hydrogenic fallback</span>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider">Accuracy limits of the two models</div>
+
+  <section class="pipeline" style="margin-top:0;">
+    <div class="flow">
+      <div class="stage">
+        <div class="split">
+          <div class="split-half">
+            <p class="half-label">atomSFE (Z ≤ 92) — default</p>
+            <div class="f">eigenvalues: ≤ 7×10⁻⁶ Ha vs NIST LDA, 92/92 configs matched</div>
+            <p class="caption" style="margin-top:8px;">LDA self-interaction error slightly over-delocalizes valence orbitals. Corrected by κ<sub>Z</sub> against the Clementi–Raimondi literature radius at render time — the internal wavefunction shape is NIST-accurate, only the displayed scale is recalibrated.</p>
+          </div>
+          <div class="split-half">
+            <p class="half-label">Hydrogenic Z_eff (Z > 92 or --model hydrogenic)</p>
+            <div class="f">period 2 p-block: ~1–3%; period 3–4: ~30–54%; period 6+: 3–5×</div>
+            <p class="caption" style="margin-top:8px;">The hydrogenic functional form cannot capture the inner-node structure that compresses valence orbitals in heavy atoms. Clementi–Raimondi (Z ≤ 54) is significantly better than Slater; the n* correction recovers part of the gap for n ≥ 4, but residual error grows with Z. See <a href="ATOMS.md">ATOMS.md §4.2</a> for the per-element table.</p>
+          </div>
+        </div>
+        <p class="caption" style="margin-top:14px; text-align:center;">Neither model includes relativistic effects (Dirac equation). Relevant for Z ≳ 55 — the contracted 6s orbital of gold responsible for its color and Au–Au bond strength cannot be reproduced without a relativistic treatment. Noted as a known limit; not planned for this project's scope.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="legend">
+    <h3>Reading key</h3>
+    <div class="legend-grid">
+      <div class="legend-group">
+        <p class="legend-group-title">Box style</p>
+        <div class="box-key"><span class="mini given-mini"></span> given — a precomputed table or analytic formula, read as input</div>
+        <div class="box-key"><span class="mini solid-mini"></span> computed — an operation this pipeline performs</div>
+      </div>
+      <div class="legend-group">
+        <p class="legend-group-title">Shell color, n = 1…7 (K…Q)</p>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-1)"></span> n=1 K</div>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-2)"></span> n=2 L</div>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-3)"></span> n=3 M</div>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-4)"></span> n=4 N</div>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-5)"></span> n=5 O</div>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-6)"></span> n=6 P</div>
+        <div class="swatch-row"><span class="swatch" style="background:var(--shell-7)"></span> n=7 Q</div>
+      </div>
+    </div>
+    <p>See also: <a href="coefficients_to_tables.html">Coefficients to Tables</a> — how the hydrogen orbital samplers are built from Laguerre/Legendre polynomials · <a href="tables_to_bin.html">Tables to BIN</a> — how the atomSFE npz is packaged into flash blobs · <a href="tables_to_pointclouds.html">Tables to Point Clouds</a> — the per-point draw pipeline (both orbital and atom) · <a href="ATOMS.md">ATOMS.md</a> — validation numbers, file map, and technical history.</p>
+  </footer>
+
+</div>
+</body>
+</html>

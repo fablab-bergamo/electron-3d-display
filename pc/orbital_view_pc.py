@@ -50,6 +50,7 @@ from viewer_common import (
     advance_rotation, fly_over, maybe_zoom_excursion, blit_to_canvas,
     find_unicode_font,
     _next_zoom_excursion_countdown,
+    FpsTracker,
 )
 
 import tkinter as tk
@@ -260,6 +261,8 @@ class OrbitalViewApp:
             _eq_block_h = _EQ_BLOCK_H_FALLBACK
         self._eq_y = (HEIGHT - _eq_block_h) // 2
         self._reveal_y = self._eq_y + _eq_block_h + 40
+
+        self._fps = FpsTracker('orbital')
 
         fly_over(self, self.preset.base_scale * INTRO_START_SCALE_FACTOR, self.preset.base_scale,
                  ORBITAL_INTRO_FRAMES)
@@ -473,6 +476,7 @@ class OrbitalViewApp:
         advance_rotation(self)
         self.zoom_angle = (self.zoom_angle + ORBITAL_ZOOM_ANGLE_STEP) % self.two_pi
 
+        self._fps.tick()
         self.root.after(FRAME_DELAY_MS, self._tick)
 
 

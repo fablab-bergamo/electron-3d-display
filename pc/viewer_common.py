@@ -17,6 +17,7 @@ import math
 import os
 import random
 import sys
+import time
 
 import micropython_shim  # noqa: F401 -- must precede micropython/ imports (see that module)
 
@@ -36,6 +37,29 @@ import render_core
 
 _HAS_NUMPY = render_core._HAS_NUMPY
 _preset_np = render_core.preset_np
+
+# --- FPS tracker ------------------------------------------------------------
+class FpsTracker:
+    """Logs measured FPS to stdout once every `interval` seconds.
+    Call .tick() once per rendered frame; each call that crosses an interval
+    boundary prints one line, then resets. The label identifies which viewer
+    is reporting (e.g. 'orbital' or 'atom').
+    """
+    def __init__(self, label, interval=5.0):
+        self._label = label
+        self._interval = interval
+        self._frames = 0
+        self._last = time.time()
+
+    def tick(self):
+        self._frames += 1
+        now = time.time()
+        elapsed = now - self._last
+        if elapsed >= self._interval:
+            print("%s: %.1f fps" % (self._label, self._frames / elapsed))
+            self._frames = 0
+            self._last = now
+
 
 # --- Display geometry -------------------------------------------------------
 WIDTH = 480

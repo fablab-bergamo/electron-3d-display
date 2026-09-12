@@ -60,6 +60,7 @@ from viewer_common import (
     _next_zoom_excursion_countdown,
     outer_bound_scale, inner_bound_scale, shell_count_frames,
     _HAS_NUMPY, _preset_np, _blend_points_np, _draw_nucleus_np,
+    FpsTracker,
 )
 
 import render_core  # shared numpy render core (also imported by web/py/web_common.py)
@@ -489,6 +490,8 @@ class AtomViewApp:
             size=DISSECT_CAPTION_FONT_SIZE)
         self._dissect_occ_font = find_unicode_font(DISSECT_OCC_FONT_SIZE) or ImageFont.load_default(
             size=DISSECT_OCC_FONT_SIZE)
+
+        self._fps = FpsTracker('atom')
 
         fly_over(self, self._effective_base_scale() * INTRO_START_SCALE_FACTOR, self._effective_base_scale(),
                  INTRO_FRAMES)
@@ -1043,6 +1046,7 @@ class AtomViewApp:
         advance_rotation(self)
         self.zoom_angle = (self.zoom_angle + ZOOM_ANGLE_STEP) % self.two_pi
 
+        self._fps.tick()
         self.root.after(FRAME_DELAY_MS, self._tick)
 
 
