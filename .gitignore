@@ -6,6 +6,8 @@ sdkconfig.*
 !sdkconfig.defaults
 !sdkconfig.defaults.esp32
 !sdkconfig.defaults.esp32s3
+# Host-build stub for tests/physics (not an ESP-IDF generated sdkconfig).
+!/tests/physics/host/stubs/sdkconfig.h
 capture.log
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
