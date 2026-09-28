@@ -21,7 +21,10 @@ esptool.py --chip esp32   write_flash 0x0 electron-3d-display-<tag>-cyd-esp32-24
 or use https://espressif.github.io/esptool-js/ from the browser (address
 0x0). Releases are cut manually from the Actions tab (**Release firmware**
 → Run workflow → tag), which builds both images with
-`tools/build_merged_bin.py`. The rest of this file is the from-source path.
+`tools/build_merged_bin.py`. If the organization doesn't let the Actions
+token create releases, add a fine-grained token (this repository, Contents:
+read and write) as the repository secret `RELEASE_TOKEN`; the workflow uses
+it instead. The rest of this file is the from-source path.
 
 ## Toolchain
 
