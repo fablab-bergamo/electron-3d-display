@@ -1,0 +1,136 @@
+name: Release firmware
+
+# Manual release (Actions tab -> "Release firmware" -> Run workflow): builds the
+# single-file flash image for each board with tools/build_merged_bin.py
+# (bootloader + partition table + app + SPIFFS "storage" data, merged at
+# offset 0x0) and publishes them as assets of a new GitHub release.
+#
+# Pull requests that touch this workflow or the merge script run the build
+# jobs only (no release), so a broken release pipeline shows up in review
+# instead of on release day.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create, e.g. v1.0.0'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - 'tools/build_merged_bin.py'
+
+permissions:
+  contents: read
+
+env:
+  # Asset file names carry the tag; PR validation builds use "dev".
+  VERSION: ${{ inputs.tag || 'dev' }}
+
+jobs:
+  check-tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate tag
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! [[ "$TAG" =~ ^v?[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+            echo "::error::invalid tag '$TAG' (use e.g. v1.0.0)"; exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::release '$TAG' already exists"; exit 1
+          fi
+
+  build:
+    needs: check-tag
+    # Runs when check-tag passed (dispatch) or was skipped (pull_request).
+    if: ${{ !failure() && !cancelled() }}
+    name: Build ${{ matrix.board }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: Waveshare ESP32-S3-LCD-1.3
+            env: WS_ESP32_S3_LCD_1_3
+            asset: waveshare-esp32-s3-lcd-1.3
+          - board: CYD (ESP32-2432S028R)
+            env: CYD
+            asset: cyd-esp32-2432s028r
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO and esptool
+        # esptool 4.x: build_merged_bin.py calls `esptool.py ... merge_bin`
+        # with the underscore option names that 5.x deprecates.
+        run: python -m pip install platformio "esptool>=4.7,<5"
+
+      - name: Build merged flash image
+        run: |
+          mkdir -p dist
+          python tools/build_merged_bin.py "${{ matrix.env }}" \
+            -o "dist/electron-3d-display-${VERSION}-${{ matrix.asset }}.bin"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.env }}
+          path: dist/*.bin
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: firmware-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum -- *.bin > SHA256SUMS.txt
+          s3="electron-3d-display-${TAG}-waveshare-esp32-s3-lcd-1.3.bin"
+          cyd="electron-3d-display-${TAG}-cyd-esp32-2432s028r.bin"
+          cat > ../notes.md <<EOF
+          Single-file flash images (bootloader + partition table + firmware + data partition),
+          written at offset **0x0**. Built from ${GITHUB_SHA::7}.
+
+          | Board | Image | Flash |
+          |---|---|---|
+          | Waveshare ESP32-S3-LCD-1.3 (16 MB) | \`${s3}\` | \`esptool.py --chip esp32s3 write_flash 0x0 ${s3}\` |
+          | CYD, ESP32-2432S028R (4 MB) | \`${cyd}\` | \`esptool.py --chip esp32 write_flash 0x0 ${cyd}\` |
+
+          Browser alternative: https://espressif.github.io/esptool-js/ (Program, flash address 0x0).
+          Checksums in \`SHA256SUMS.txt\`.
+          EOF
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$TAG" --notes-file ../notes.md "${flags[@]}" ./*.bin SHA256SUMS.txt
