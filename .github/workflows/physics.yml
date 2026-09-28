@@ -1,0 +1,51 @@
+name: Physics checks
+
+# Regression checks on the atom/orbital physics and the data generated from
+# it -- see tests/physics/README.md. Catches mistakes that keep the model
+# self-consistent but physically wrong (e.g. a wrong power of r in the radial
+# tables), generated device data out of sync with its source, and the device
+# C++ radial code drifting from the Python model.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'src/physics/**'
+      - 'src/render/overlay.h'
+      - 'pc/**'
+      - 'micropython/**'
+      - 'web/**'
+      - 'data/**'
+      - 'tools/**'
+      - 'tests/physics/**'
+      - '.github/workflows/physics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  physics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install numpy scipy pytest
+
+      - name: Physics test suite
+        run: python -m pytest tests/physics -v
+
+      - name: Atom model vs literature (strict)
+        run: |
+          # HFS tables (what every port renders): raw valence radii within
+          # 0.7-1.4x Clementi-Raimondi, plus Unsoeld/Hund/ordering/H-He checks.
+          python pc/validate_atoms.py --model hfs --all --strict --ratio 0.7 1.4 --tables pc/hfs_tables_reduced.npz
+          # Hydrogenic model (web viewer, PC default): Clementi-Raimondi Z_eff
+          # range only -- past Z=54 the Slater fallback is known to drift.
+          python pc/validate_atoms.py --zmax 54 --strict
