@@ -217,6 +217,52 @@ def outer_subshell_r_ref(xs, ys, zs, shells, ells, config):
     return plan[0][5] if plan else 1.0
 
 
+def valence_subshell(config):
+    """(n, ell): highest-ell subshell among the highest-n occupied ones --
+    the subshell the Clementi-Raimondi atomic radius refers to, and the one
+    the size calibration pins to it (same rule as
+    tools/atom_size_calib_gen.py / pc/validate_atoms.py). Usually also the
+    outermost subshell by p90, but not always in the hydrogenic model (C:
+    2s reaches further than 2p), so the full-atom bounding circle uses this
+    subshell's peak radius to land exactly on the literature value.
+    """
+    n_max = max(n for n, _ell, _occ in config)
+    return max(((n, ell) for n, ell, _occ in config if n == n_max), key=lambda t: t[1])
+
+
+# Grid resolution for the hydrogenic peak-radius scan below: the mode lands
+# within max_r/PEAK_RADIUS_RESOLUTION = 6n^2/(Z_eff*4000) of the exact value
+# (~0.2% of it), cheap enough to run for every subshell on each element load.
+PEAK_RADIUS_RESOLUTION = 4001
+
+
+def subshell_peak_radii(z, config, radial_tables=None, size_factor=1.0):
+    """{(n, ell): radius of maximum radial density, in Bohr} for every
+    subshell in `config`, from the SAME radial model build_atom_point_cloud()
+    samples (`radial_tables` or hydrogenic Z_eff), times `size_factor` (pass
+    the Clementi-Raimondi calibration factor the cloud was scaled by).
+
+    This is the Clementi-Raimondi definition of atomic radius, so for
+    valence_subshell(config) it is exactly the literature radius the size
+    calibration targets -- what every viewer draws the bounding circle at.
+    The p90 radii from subshell_dissection_plan() stay the framing/zoom
+    reference (~1.7-3x larger; a circle there matches no quoted radius).
+    Port of src/physics/atom_cloud.cpp's per-subshell peakR (RadialTable::
+    peakR, pointcloud.h's radialModeOnGrid()).
+    """
+    peaks = {}
+    for n, ell, _occ in config:
+        if radial_tables is not None:
+            src = radial_tables.source(z, n, ell)
+            density = [src.u[i] * src.u[i] for i in range(len(src.r))]
+            r = pointcloud.radial_mode_radius_from_table(src.r, density)
+        else:
+            z_eff = slater.z_eff_radial(z, config, n, ell)
+            r = pointcloud.radial_mode_radius(n, ell, z_eff, resolution=PEAK_RADIUS_RESOLUTION)
+        peaks[(n, ell)] = r * size_factor
+    return peaks
+
+
 def pixels_per_bohr_for_canvas(canvas_center, radius_fraction=_CALIBRATION_RADIUS_FRACTION,
                                 reference_z=_CALIBRATION_Z):
     """The single pixels-per-Bohr-radius conversion factor scale_for_atom()

@@ -106,13 +106,14 @@ solver above — see `pc/hfs_atomsfe.py` (generator), `pc/nist_compare_atomsfe.p
   SCF-collapse artifacts (Cu 4s = −4.36 Ha, Cr 4s = −0.74 Ha — the
   ns-into-d metastable the sigma fix addressed). **Do not use
   `hfs_tables - Copia.npz` as a data source.**
-- **Radii**: LDA valence orbitals are more diffuse than the HF-based
-  Clementi-Raimondi reference (self-interaction error; H ~2.2×, period 2
-  ~1.7×, Fe ~1.1×, U ~1.5×). The old Xα+Latter model matched CR (0.90–0.99)
-  via its Latter cutoff, which the library lacks (its HF/EXX paths are
-  spin-restricted and under-cancel open-shell self-interaction — H comes
-  out at −0.358 Ha instead of −0.5; the spin-polarized UHF path raises
-  NotImplementedError). The display therefore applies a **per-element
+- **Radii**: raw LDA valence mode radii land within ~0.8–1.2× of the
+  HF-based Clementi-Raimondi reference (H ~1.06×, period 2 ~0.93×,
+  Fe ~0.83×, U ~1.23× — LDA vs HF, plus no relativistic contraction for
+  Z≳55). An earlier version of this note blamed ~2× offsets (H ~2.2×,
+  period 2 ~1.7×) on LDA self-interaction error: those were an export bug
+  (`hfs_atomsfe.solve_element()` multiplied atomSFE's orbitals, already
+  u = r·R, by r again, storing r²·R), since fixed — see the "r² export fix"
+  note under the reduced table below. The display applies a **per-element
   Clementi-Raimondi size calibration** (`atom_view_pc.clementi_size_factor`):
   the rendered cloud is rescaled so the valence mode lands on the CR
   literature radius, while internal structure stays NIST-exact LDA.
@@ -153,7 +154,7 @@ Every display port renders CR-correct atom sizes (valence mode radius =
 Clementi-Raimondi literature) on top of its own radial model:
 
 - PC viewer with tables: `atom_view_pc.clementi_size_factor()` =
-  CR / LDA-table valence mode (the LDA SIE correction).
+  CR / LDA-table valence mode.
 - PC viewer hydrogenic path, micropython viewer, web viewer, and the
   device (`src/physics/atom_cloud.cpp`): the generated hydrogenic factor table
   `src/physics/atom_size_calib.h` / `micropython/atom_size_calib.py`
@@ -178,6 +179,18 @@ Accuracy vs the full 2001-pt tables: valence-subshell modes within **1.5%**
 ```bash
 python pc/hfs_tables.py --compact pc/hfs_tables.npz pc/hfs_tables_reduced.npz 128
 ```
+
+**r² export fix (2026-09).** The committed reduced table was repaired in
+place rather than regenerated (the full tables and the atomSFE install are
+not committed): every `u` row was divided by `r`, the constant np.interp
+clamp plateau below the first solver node was replaced by a linear ramp
+from u(0) = 0 (what the fixed exporter now produces), and each row was
+renormalized to ∫u² dr = 1. Checked against an independent spin-unpolarized
+LDA solve for H and He (max |Δu| ≈ 1e-3, from PZ81 vs VWN correlation).
+`data/hfs_tables.bin`, `micropython/hfs_tables.bin` and the table-based
+size factors were then regenerated with `tools/hfs_table_gen.py` and
+`tools/atom_size_calib_gen.py`. Regenerating from scratch with the fixed
+`pc/hfs_atomsfe.py` + `--compact` gives the same tables.
 
 The documented STO-fit / 64-pt-Hermite device form and the per-port codegen
 are still the standing follow-ups (pc/screened_potential_model.md §7); this

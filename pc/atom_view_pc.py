@@ -92,10 +92,10 @@ def clementi_size_factor(radial_tables, z):
     valence-subshell mode radius.
 
     With the SPARC-atomSFE tables (`radial_tables`): the LDA eigenvalues are
-    NIST-exact (~1e-6 Ha, pc/nist_compare_atomsfe.py) but the valence
-    orbitals are more diffuse than the HF-based Clementi-Raimondi reference
-    (LDA self-interaction error -- worst for light elements: H ~2.2x,
-    period 2 ~1.7x, Fe ~1.1x). Without tables (hydrogenic model): the
+    NIST-exact (~1e-6 Ha, pc/nist_compare_atomsfe.py) and the raw valence
+    mode radii land within ~0.8-1.2x of the HF-based Clementi-Raimondi
+    reference (H ~1.06x, Fe ~0.83x, U ~1.23x -- LDA vs HF plus the missing
+    relativistic contraction past Z~55). Without tables (hydrogenic model): the
     z_eff substitution already matches CR for the lightest elements but
     drifts for alkali/transition metals and strongly past Z=54 (Slater
     fallback) -- atom_size_calib.py carries the hydrogenic factors
@@ -611,7 +611,7 @@ class AtomViewApp:
         def overlays(draw):
             # Neutral gray bounding circle (default BOUNDING_SPHERE_COLOR --
             # deliberately not shell-colored).
-            draw_orbit_marker(draw, self.preset.r_ref, scale, self.angle, self.tilt_angle, self.roll_angle,
+            draw_orbit_marker(draw, self.preset.peak_r, scale, self.angle, self.tilt_angle, self.roll_angle,
                                marker_text=slater.element_symbol(self.z))
             # Scale (px per Bohr radius, THIS frame -- varies with zoom
             # breathing/excursions) -> px per picometer, so the bar always
@@ -627,7 +627,7 @@ class AtomViewApp:
                           fill=(255, 220, 40), font=_TITLE_FONT)
         blit_to_canvas(self, overlays)
 
-    def _blit_dissection(self, scale, r_ref, title):
+    def _blit_dissection(self, scale, circle_r, title):
         """Like _blit(), but for dissection frames: the rotating spoke/text
         part of draw_orbit_marker() is skipped -- just its plain gray
         bounding-circle outline (draw_bounding_circle(), neutral
@@ -641,7 +641,7 @@ class AtomViewApp:
         to the nucleus.
         """
         def overlays(draw):
-            draw_bounding_circle(draw, r_ref, scale)
+            draw_bounding_circle(draw, circle_r, scale)
             draw_scale_bar(draw, scale / atom_cloud.PM_PER_BOHR, "pm")
             if title is not None:
                 big_label, caption, occ = title
@@ -940,7 +940,7 @@ class AtomViewApp:
         inner_scale = inner_bound_scale(self.preset.inner_r_ref)
 
         steps = atom_dissection_common.build_dissection_steps(
-            plan, self.preset.r_ref, resting_scale, outer_scale, inner_scale,
+            plan, self.preset.peak_r_by_subshell, self.preset.peak_r, resting_scale, outer_scale, inner_scale,
             orient_frames, zoom_frames, close_frames, DISSECT_HOLD_SECONDS,
             DISSECT_TARGET_PX, DISSECT_CLIP_OPEN, DISSECT_CLIP_CLOSED,
             slater.element_symbol(self.z))

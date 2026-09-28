@@ -139,13 +139,13 @@ class _DissectPreset:
     array and title.
     """
 
-    def __init__(self, xs_fx, ys_fx, zs_fx, colors, title_fn, r_ref):
+    def __init__(self, xs_fx, ys_fx, zs_fx, colors, title_fn, peak_r):
         self.xs_fx = xs_fx
         self.ys_fx = ys_fx
         self.zs_fx = zs_fx
         self.colors = colors
         self._title_fn = title_fn
-        self.r_ref = r_ref
+        self.peak_r = peak_r
 
     def draw_title(self, fb, buf, x, y, text_color):
         self._title_fn(fb, buf, x, y, text_color)
@@ -154,7 +154,7 @@ class _DissectPreset:
         pass  # occupancy note is drawn as part of draw_title() above instead
 
     def draw_bounding_circle(self, fb, buf, scale):
-        _draw_bounding_circle(fb, self.r_ref, scale)
+        _draw_bounding_circle(fb, self.peak_r, scale)
 
 
 def _ease_scale_timed(d, fb, buf, preset, proton_color, text_color, scale_bar_color, angle, tilt_angle, roll_angle,
@@ -261,7 +261,8 @@ def _run_dissection(d, fb, buf, preset, proton_color, text_color, scale_bar_colo
             occ_w = drc.text_width_scaled(occ_text, drc.FONT_SCALE_LARGE)
             drc.draw_text_scaled(fb_, buf_, WIDTH - occ_w - 1, 1, occ_text, _DISSECT_OCC_COLOR, drc.FONT_SCALE_LARGE)
 
-        level_preset = _DissectPreset(preset.xs_fx, preset.ys_fx, preset.zs_fx, colors, title_fn, rref)
+        level_preset = _DissectPreset(preset.xs_fx, preset.ys_fx, preset.zs_fx, colors, title_fn,
+                                      preset.peak_r_by_subshell[(n, ell)])
         target_scale, _amp, _rr = atom_cloud.scale_for_atom(rref, PIXELS_PER_BOHR)
         fly_ms = _fly_duration_ms(prev_rref, rref)
         print("atom: dissecting shell %s (level %d/%d, fly %dms)" % (big_label, level, len(plan), fly_ms))
@@ -289,13 +290,14 @@ def _run_dissection(d, fb, buf, preset, proton_color, text_color, scale_bar_colo
     return angle, tilt_angle, roll_angle
 
 
-def _draw_bounding_circle(fb, r_ref, scale):
-    """Outline circle at the outer/valence subshell's own radius -- device counterpart of
+def _draw_bounding_circle(fb, peak_r, scale):
+    """Outline circle at a subshell's radius of maximum radial density (the Clementi-Raimondi
+    radius, see atom_cloud.subshell_peak_radii()) -- device counterpart of
     src/render/overlay.cpp's drawBoundingCircle(). A circle centered at the exact panel center
     is symmetric under the 180-degree orientation flip, so (unlike text) it needs no per-pixel
     work -- framebuf's own outline-mode fb.ellipse() (f=False) draws it directly.
     """
-    r = int(r_ref * scale + 0.5)
+    r = int(peak_r * scale + 0.5)
     if r <= 0:
         return
     fb.ellipse(CENTER, CENTER, r, r, drc.BOUNDING_CIRCLE_COLOR, False)
@@ -354,7 +356,12 @@ class AtomPresetState:
         r_ref = atom_cloud.outer_subshell_r_ref(xs, ys, zs, shells, ells, config)
         self.base_scale, self.zoom_amplitude, self.r_ref = atom_cloud.scale_for_atom(r_ref, PIXELS_PER_BOHR)
 
+        # Bounding-circle radii: each subshell's peak radius, scaled by the same factor f as the
+        # points, so the valence one is the Clementi-Raimondi radius; r_ref (p90) stays framing only.
+        self.peak_r_by_subshell = atom_cloud.subshell_peak_radii(z, config, radial_tables=_HFS_TABLES,
+                                                                 size_factor=f)
         self.dissect_plan = atom_cloud.subshell_dissection_plan(xs, ys, zs, shells, ells, config)
+        self.peak_r = self.peak_r_by_subshell[atom_cloud.valence_subshell(config)]
         self.dissect_ranges = _dissection_ranges(shells, ells, self.dissect_plan)
 
         print("atom: %s loaded in %dms, scale=%.1f" % (
@@ -372,7 +379,7 @@ class AtomPresetState:
         drc.draw_text_scaled(fb, buf, WIDTH - w, 1, z_label, _GREEN_YELLOW, drc.FONT_SCALE_HUGE)
 
     def draw_bounding_circle(self, fb, buf, scale):
-        _draw_bounding_circle(fb, self.r_ref, scale)
+        _draw_bounding_circle(fb, self.peak_r, scale)
 
 
 def run(z=DEFAULT_Z, d=None, detector=None):

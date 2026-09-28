@@ -224,10 +224,11 @@ validation seriously:
   *Atomic Reference Data for Electronic Structure Calculations*
   (Kotochigova et al., 1997) LDA eigenvalues to ≤7×10⁻⁶ Ha across all 915
   subshells of Z=1–92, and its ground-state electron configurations match
-  NIST's 92/92 (`pc/nist_compare_atomsfe.py`). LDA valence orbitals are
-  more diffuse than the Hartree–Fock Clementi–Raimondi reference
-  (self-interaction error), so rendered sizes are additionally calibrated
-  per element to land on the Clementi–Raimondi literature radius while the
+  NIST's 92/92 (`pc/nist_compare_atomsfe.py`). The raw LDA valence peak
+  radii land within ~0.8–1.2× of the Hartree–Fock Clementi–Raimondi
+  reference, so rendered sizes are additionally calibrated per element to
+  land exactly on the Clementi–Raimondi literature radius (drawn on-device
+  as the atom's circle) while the
   internal shell structure stays NIST-exact
   (`pc/validate_atoms.py --model hfs --strict --all`,
   `tools/atom_size_calib_gen.py`). Unsöld isotropy of full shells, Hund

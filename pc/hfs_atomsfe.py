@@ -26,11 +26,16 @@ limited to that range). `--merge-old` can still graft Z outside [zmin,zmax]
 from an existing npz, but the default tables are the pure atomSFE set.
 
 Notes / known limitations (see pc/RUN_HFS.md for the old model's story):
+  * atomSFE's `orbitals` are already u = r*R. Tables exported before the
+    fix in solve_element() multiplied them by r again (r^2*R), which pushed
+    every radial density outward (H 1s mode 2.3 a0 instead of ~1.05) --
+    the ~2x "LDA self-interaction" size offsets once documented here were
+    that bug, not physics.
   * The library is non-relativistic: the one-shot radial Dirac pass the old
     solver applied for Z>=55 (s/p contraction, U 7s 242->174 pm) is NOT
     reproduced here. Z>=55 tables are plain LDA (Schrodinger) results.
-  * LDA valence orbitals are more diffuse than the HF-based
-    Clementi-Raimondi reference (self-interaction error); pc/atom_view_pc.py
+  * LDA valence mode radii differ from the HF-based Clementi-Raimondi
+    reference by ~0.8-1.2x; pc/atom_view_pc.py
     applies a per-element CR size calibration so the display sizes match
     literature.
 
@@ -101,11 +106,16 @@ def solve_element(z, functional, domain, fe, order, quad, tol, verbose):
         ell = int(occ.occ_l[i])
         o = float(occ.occ_spin_up_plus_spin_down[i])
         E = float(E_all[i])
-        # u = r*R on the source quadrature grid, then onto the output log grid.
-        # np.interp clamps to the boundary values; beyond the domain the bound
-        # state is ~0, which is what the clamp gives.
-        u_src = rq * orb[:, i]
-        u_out = np.interp(r_out, rq, u_src)
+        # atomSFE's `orbitals` are ALREADY u = r*R (the radial KS equation it
+        # solves is written for u), so they go onto the output log grid as-is.
+        # Multiplying by rq here once stored r^2*R instead, pushing every
+        # radial density out by an extra r^2 (H 1s mode 2.3 a0 instead of
+        # ~1.05) -- the renormalization below hid it. u(0) = 0 is prepended so
+        # output points below the first quadrature node interpolate linearly
+        # to the origin instead of np.interp's constant clamp (harmless for
+        # r^2*R, but u/r of a plateau spikes at r -> 0). Past the domain the
+        # clamp is still right: the bound state is ~0 there.
+        u_out = np.interp(r_out, np.concatenate(([0.0], rq)), np.concatenate(([0.0], orb[:, i])))
         # Renormalize on the output grid (the FE orbitals are L2-normalized in
         # the FE sense; this makes int u^2 dr = 1 exactly as the schema says).
         norm = np.trapezoid(u_out * u_out, r_out)

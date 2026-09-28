@@ -141,7 +141,8 @@ ElectronConfig buildAtomPointCloud(int z, AtomPoint *out, int count, uint32_t se
         if (g > 0 && groups[g].subshellIndex == groups[g - 1].subshellIndex)
             outRanges[rangeCount - 1].count += counts[g];
         else
-            outRanges[rangeCount++] = {n, ell, config.subshells[groups[g].subshellIndex].occ, groupStart, counts[g]};
+            outRanges[rangeCount++] = {n, ell, config.subshells[groups[g].subshellIndex].occ,
+                                       groupStart, counts[g], radial.peakR};
     }
     *outRangeCount = rangeCount;
 
@@ -149,21 +150,26 @@ ElectronConfig buildAtomPointCloud(int z, AtomPoint *out, int count, uint32_t se
     // whole cloud so the valence subshell's mode radius lands on the
     // literature value, keeping the internal shell structure and relative
     // sizes. The device zoom-to-fits via kAtomTargetPx/rRef (scaleForAtom),
-    // so on-device this mainly makes the pm scale bar and the dissection
-    // zoom depths CR-consistent. kAtomSizeCalibFactor is table-based here
+    // so on-device this mainly makes the pm scale bar, the dissection zoom
+    // depths and the bounding circle (drawn at the outer subshell's peakR,
+    // scaled below with the points) CR-consistent. kAtomSizeCalibFactor is table-based here
     // (CR / HFS-table valence mode, tools/atom_size_calib_gen.py's
     // compute_table_factors() -- see pc/RUN_HFS.md's device note), matching
     // the radial model actually rendered above; the internal shell
     // structure past the valence subshell stays the LDA tables' own (see
-    // pc/RUN_HFS.md section 5's SIE/relativistic-offset caveats).
+    // pc/RUN_HFS.md section 5's LDA/relativistic-offset caveats).
     orb_real_t calib = kAtomSizeCalibFactor[z - 1];
     if (calib != orb_real_t(1))
+    {
         for (int i = 0; i < idx; i++)
         {
             out[i].x *= calib;
             out[i].y *= calib;
             out[i].z *= calib;
         }
+        for (int s = 0; s < rangeCount; s++)
+            outRanges[s].peakR *= calib;
+    }
 
     return config;
 }
@@ -220,7 +226,7 @@ OuterSubshell outerSubshellRRef(const AtomPoint *points, const AtomSubshellRange
         if (rRef > bestR)
         {
             bestR = rRef;
-            best = {r.n, r.ell, rRef};
+            best = {r.n, r.ell, rRef, r.peakR};
         }
     }
     return best;
@@ -236,7 +242,7 @@ int subshellDissectionPlan(const AtomPoint *points, const AtomSubshellRange *ran
         if (r.count == 0)
             continue;
         orb_real_t rRef = p90RadiusOfRange(points, r.startIndex, r.count);
-        out[written++] = {r.n, r.ell, rRef, r.occ, r.startIndex, r.count};
+        out[written++] = {r.n, r.ell, rRef, r.peakR, r.occ, r.startIndex, r.count};
     }
 
     // Small array (<= kMaxConfigSubshells, at most ~20 entries) -- insertion sort descending

@@ -14,10 +14,10 @@ clementi_size_factor()) -- that calibration forces the displayed valence
 radius to land exactly on the literature value by construction, so plotting
 it would just redraw the literature curve. The raw model is the genuine
 "what the physics computes" series; see the run-time systematic offset note
-printed below the plot (documented in pc/RUN_HFS.md section 5: LDA valence
-orbitals are more diffuse than the Hartree-Fock Clementi-Raimondi reference
--- self-interaction error, roughly 2.2x for H, 1.7x for period 2, 1.1x for
-Fe, 1.5x for U).
+printed below the plot (documented in pc/RUN_HFS.md section 5: raw LDA
+valence mode radii land within ~0.8-1.2x of the Hartree-Fock
+Clementi-Raimondi reference -- ~1.06x for H, ~0.93x for period 2, ~0.83x for
+Fe, ~1.23x for U).
 
 Two additional, deliberately cruder reference series are plotted alongside
 this project's model to show what each approximation buys you:
@@ -225,8 +225,8 @@ def main():
     ax_i.legend(frameon=False, loc='upper right')
 
     fig.text(0.01, 0.01,
-              "Mean raw-model / literature ratio: radius %.2fx (LDA self-interaction offset, more diffuse "
-              "valence orbitals than Hartree-Fock;\nsee pc/RUN_HFS.md section 5) -- ionization energy %.2fx "
+              "Mean raw-model / literature ratio: radius %.2fx (LDA vs Hartree-Fock valence offset, "
+              "no relativistic contraction;\nsee pc/RUN_HFS.md section 5) -- ionization energy %.2fx "
               "(Koopmans' theorem neglects orbital relaxation and correlation;\nsee "
               "validate_atoms.check_koopmans()). Neither is a modeling error.\n"
               "Reference series: naive hydrogen (no screening) radius %.2fx literature -- Slater/CR Z_eff "

@@ -117,9 +117,9 @@ static void plotCircleOctants(Display &display, int cx, int cy, int dx, int dy, 
     display.writePx(cx - dy, cy - dx, color);
 }
 
-void drawBoundingCircle(Display &display, orb_real_t rRef, orb_real_t scale, uint16_t color)
+void drawBoundingCircle(Display &display, orb_real_t radius, orb_real_t scale, uint16_t color)
 {
-    int r = int(rRef * scale + orb_real_t(0.5));
+    int r = int(radius * scale + orb_real_t(0.5));
     if (r <= 0)
         return;
     int cx = Display::kDisplayWidth / 2;

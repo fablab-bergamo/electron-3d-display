@@ -20,9 +20,9 @@ hfs_solver.save_tables()):
     z<N>_<n>_<ell>_E   float64         eigenvalue (Hartree)
     z<N>_<n>_<ell>_occ int32          occupancy
 
-Display note: the LDA valence orbitals are more diffuse than the
-Hartree-Fock-based Clementi-Raimondi reference (self-interaction error, worst
-for light elements); pc/atom_view_pc.py applies a per-element
+Display note: the LDA valence mode radii differ from the Hartree-Fock-based
+Clementi-Raimondi reference by ~0.8-1.2x (LDA vs HF, no relativistic
+contraction past Z~55); pc/atom_view_pc.py applies a per-element
 Clementi-Raimondi size calibration (clementi_size_factor) so rendered atom
 sizes match literature while the internal structure stays NIST-exact LDA.
 

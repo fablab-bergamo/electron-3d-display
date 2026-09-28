@@ -31,12 +31,12 @@ void drawScaleBar(Display &display, orb_real_t pixelsPerUnit, const char *unitLa
                   uint16_t textColor);
 
 /**
- * @brief Screen-centered outline circle of radius rRef*scale -- the atom's bounding-sphere
- * silhouette, drawn on top of the point cloud so its outer edge reads clearly even where the
- * cloud itself thins out toward the boundary. Port of pc/viewer_common.py's
- * draw_bounding_circle() / web/py/web_common.py's draw_bounding_circle_canvas(); rRef <= 0
- * draws nothing.
+ * @brief Screen-centered outline circle of radius radius*scale, drawn on top of the point
+ * cloud. atom_view passes the outer subshell's radius of maximum radial density (the
+ * Clementi-Raimondi atomic radius), so points visibly extend past it -- a probability cloud
+ * has no edge. Port of pc/viewer_common.py's draw_bounding_circle() /
+ * web/py/web_common.py's draw_bounding_circle_canvas(); radius <= 0 draws nothing.
  */
-void drawBoundingCircle(Display &display, orb_real_t rRef, orb_real_t scale, uint16_t color);
+void drawBoundingCircle(Display &display, orb_real_t radius, orb_real_t scale, uint16_t color);
 
 inline constexpr const char *kLoadingText = "Loading...";

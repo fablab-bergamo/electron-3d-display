@@ -30,6 +30,7 @@
  */
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 
 #include "physics/orbitals.h"
@@ -223,6 +224,38 @@ inline orb_real_t interpOnGrid(orb_real_t x, const orb_real_t *xGrid, const orb_
 }
 
 /**
+ * Radius of maximum radial probability density (the mode of r^2 R^2) from `count` density
+ * samples, with parabolic refinement through the argmax and its two neighbours -- port of
+ * micropython/pointcloud.py's radial_mode_radius_from_table(). This is the quantity
+ * Clementi-Raimondi's calculated atomic radii are defined by ("radius of maximum charge
+ * density of the outermost shell"). `xAt(i)`/`densityAt(i)` return grid point i's radius and
+ * density, so one implementation serves both the evenly-spaced hydrogenic grid and the HFS
+ * tables' log-uniform one without materializing an x array for the former.
+ */
+template <typename XAt, typename DensityAt>
+orb_real_t radialModeOnGrid(int count, XAt xAt, DensityAt densityAt)
+{
+    int best = 0;
+    for (int i = 1; i < count; i++)
+        if (densityAt(i) > densityAt(best))
+            best = i;
+    if (best == 0 || best == count - 1)
+        return xAt(best);
+
+    orb_real_t x0 = xAt(best - 1), x1 = xAt(best), x2 = xAt(best + 1);
+    orb_real_t y0 = densityAt(best - 1), y1 = densityAt(best), y2 = densityAt(best + 1);
+    orb_real_t denom = (x0 - x1) * (x0 - x2) * (x1 - x2);
+    if (denom == orb_real_t(0))
+        return x1;
+    orb_real_t a = (x2 * (y1 - y0) + x1 * (y0 - y2) + x0 * (y2 - y1)) / denom;
+    orb_real_t b = (x2 * x2 * (y0 - y1) + x1 * x1 * (y2 - y0) + x0 * x0 * (y1 - y2)) / denom;
+    if (std::fabs(a) <= orb_real_t(1e-30))
+        return x1;
+    orb_real_t peak = -b / (orb_real_t(2) * a);
+    return (peak > x0 && peak < x2) ? peak : x1;
+}
+
+/**
  * Build an OrbitalSampler for (n, ell, m) and return it by value: the three
  * inverse-CDF tables above from buildRadialTable()'s r*R(r),
  * buildLegendreTable()'s P_l^m(theta), and the azimuthal factor
@@ -396,6 +429,7 @@ constexpr OrbitalAngularTables buildAngularTablesConstexpr(int ell, int m)
 struct RadialTable
 {
     orb_real_t maxR;
+    orb_real_t peakR; ///< Radius of maximum radial density (radialModeOnGrid()), bohr.
     orb_real_t invRTable[kOrbitalTableSize];
 };
 
@@ -432,6 +466,9 @@ inline const RadialTable &buildRadialSamplerRuntime(int n, int ell, orb_real_t z
         orb_real_t R = hydrogenRadialFunction(zEff * r, n, ell, radialCoeff);
         weight[i] = (r * R) * (r * R);
     }
+    // Before buildInverseCdf(), which overwrites weight[] with the CDF in place.
+    rt.peakR = radialModeOnGrid(
+        kOrbitalTableSize, [deltaR](int i) { return orb_real_t(i) * deltaR; }, [](int i) { return weight[i]; });
     buildInverseCdf(weight, kOrbitalTableSize, maxR, rt.invRTable);
     return rt;
 }

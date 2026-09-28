@@ -120,9 +120,9 @@ def emit_header(grid_size, element_count, subshell_count):
         "// do not edit by hand.",
         "#pragma once",
         "",
-        "constexpr int kHfsGridSize = %d;" % grid_size,
-        "constexpr int kHfsElementCount = %d;" % element_count,
-        "constexpr int kHfsSubshellCount = %d;" % subshell_count,
+        "inline constexpr int kHfsGridSize = %d;" % grid_size,
+        "inline constexpr int kHfsElementCount = %d;" % element_count,
+        "inline constexpr int kHfsSubshellCount = %d;" % subshell_count,
         "",
     ])
 
@@ -135,7 +135,7 @@ def main():
     blob = emit_binary(r, elements, subshells, u_rows)
 
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-    h_path = os.path.join(root, 'src', 'hfs_tables.h')
+    h_path = os.path.join(root, 'src', 'physics', 'hfs_tables.h')
     data_bin_path = os.path.join(root, 'data', 'hfs_tables.bin')
     mpy_bin_path = os.path.join(root, 'micropython', 'hfs_tables.bin')
 

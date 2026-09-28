@@ -338,7 +338,7 @@ class WebAtomApp:
     def blit(self, scale):
         wc.blit_buf(self.buf)
         draw_orbit_marker_canvas(
-            self.preset.r_ref,
+            self.preset.peak_r,
             scale,
             self.angle,
             self.tilt_angle,
@@ -493,7 +493,8 @@ class WebAtomApp:
 
         steps = atom_dissection_common.build_dissection_steps(
             plan,
-            self.preset.r_ref,
+            self.preset.peak_r_by_subshell,
+            self.preset.peak_r,
             resting_scale,
             outer_scale,
             inner_scale,

@@ -1,7 +1,7 @@
 // Screened-potential (HFS/atomSFE) radial table SIZE CONSTANTS -- the actual
 // per-(Z,n,l) u(r) data lives in data/hfs_tables.bin (ESP32 SPIFFS,
 // `pio run -t uploadfs`) / micropython/hfs_tables.bin (MicroPython device
-// root), read on demand by src/hfs_radial.cpp -- see that file's header
+// root), read on demand by src/physics/hfs_radial.cpp -- see that file's header
 // comment for the binary format and read strategy, and this file's own
 // generator (tools/hfs_table_gen.py) for the schema/provenance.
 //

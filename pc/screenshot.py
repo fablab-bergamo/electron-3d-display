@@ -341,7 +341,7 @@ def atom_screenshots(z_list, zoom_target=ATOM_ZOOM_TARGET_PX):
         render_frame(buf, preset, angle, tilt, roll, scale)
 
         def overlays(draw):
-            draw_orbit_marker(draw, preset.r_ref, scale, angle, tilt, roll, marker_text=sym)
+            draw_orbit_marker(draw, preset.peak_r, scale, angle, tilt, roll, marker_text=sym)
             draw_scale_bar(draw, scale / atom_cloud.PM_PER_BOHR, "pm")
             draw_atom_title(draw, TITLE_POS[0], TITLE_POS[1], z, preset.config)
 
@@ -416,7 +416,7 @@ def atom_gallery():
         buf = fresh_buf()
         scale = preset.base_scale * 2
         def overlays(draw):
-            draw_bounding_circle(draw, preset.r_ref, scale)
+            draw_bounding_circle(draw, preset.peak_r, scale)
             # The same physical scale in every cell: an identical bar in all
             # 54 cells is the visual proof of the uniform pixels-per-Bohr.
             draw_scale_bar(draw, scale / atom_cloud.PM_PER_BOHR, "pm")
@@ -461,7 +461,7 @@ _DISSECT_CAPTION_FONT = find_unicode_font(DISSECT_CAPTION_FONT_SIZE) or ImageFon
 _DISSECT_OCC_FONT = find_unicode_font(DISSECT_OCC_FONT_SIZE) or ImageFont.load_default(size=DISSECT_OCC_FONT_SIZE)
 
 
-def _dissect_overlays(preset, z, scale, r_ref, title):
+def _dissect_overlays(preset, z, scale, circle_r, title):
     """The dissection HUD: plain gray bounding circle (neutral
     BOUNDING_SPHERE_COLOR, not shell-colored), scale bar, the device-style
     drawDissectTitle() triple (big "2p" label, "Fe (k/N)" caption,
@@ -470,7 +470,7 @@ def _dissect_overlays(preset, z, scale, r_ref, title):
     """
 
     def overlays(draw):
-        draw_bounding_circle(draw, r_ref, scale)
+        draw_bounding_circle(draw, circle_r, scale)
         draw_scale_bar(draw, scale / atom_cloud.PM_PER_BOHR, "pm")
         if title is not None:
             big_label, caption, occ = title
@@ -517,7 +517,7 @@ def dissection_screenshots(z):
     # Phase 0: complete cloud, resting scale.
     render_dissection_frame(buf, preset, angle, tilt, roll, base_scale, DISSECT_CLIP_CLOSED, None)
     relpath = 'dissect_%s_0_full.png' % sym
-    save_frame(buf, _dissect_overlays(preset, z, base_scale, preset.r_ref, None), relpath)
+    save_frame(buf, _dissect_overlays(preset, z, base_scale, preset.peak_r, None), relpath)
     cells.append((relpath, 'complete cloud'))
 
     # Phases 1..N: each subshell zoomed to fill the frame, highlighted in
@@ -529,13 +529,14 @@ def dissection_screenshots(z):
         title = _dissect_title(n, ell, ecount, k, len(plan), sym)
         render_dissection_frame(buf, preset, angle, tilt, roll, target_scale, DISSECT_CLIP_CLOSED, (n, ell))
         relpath = 'dissect_%s_%d_%s.png' % (sym, k, subshell_str)
-        save_frame(buf, _dissect_overlays(preset, z, target_scale, r_ref, title), relpath)
+        save_frame(buf, _dissect_overlays(preset, z, target_scale, preset.peak_r_by_subshell[(n, ell)], title),
+                   relpath)
         cells.append((relpath, '%s (%s shell)' % (subshell_str, letter)))
 
     # Phase N+1: zoom back out to the resting scale, full cloud again.
     render_dissection_frame(buf, preset, angle, tilt, roll, base_scale, DISSECT_CLIP_CLOSED, None)
     relpath = 'dissect_%s_%d_back.png' % (sym, len(plan) + 1)
-    save_frame(buf, _dissect_overlays(preset, z, base_scale, preset.r_ref, None), relpath)
+    save_frame(buf, _dissect_overlays(preset, z, base_scale, preset.peak_r, None), relpath)
     cells.append((relpath, 'zoom back out'))
 
     return cells
@@ -581,27 +582,27 @@ def dissection_animation_gif(z=DEFAULT_DISSECT_GIF_Z):
     frames = []
     sub = GIF_SUBSAMPLE
 
-    def snap(scale, clip, active, r_ref, label):
+    def snap(scale, clip, active, circle_r, label):
         render_dissection_frame(buf, preset, angle, tilt, roll, scale, clip, active)
-        frames.append(render_to_image(buf, _dissect_overlays(preset, z, scale, r_ref, label)))
+        frames.append(render_to_image(buf, _dissect_overlays(preset, z, scale, circle_r, label)))
 
     def tumble():
         nonlocal roll
         roll = (roll + ROLL_ANGLE_STEP) % two_pi
 
-    def ease(scale0, scale1, clip0, clip1, active, r_ref, n, label=None):
+    def ease(scale0, scale1, clip0, clip1, active, circle_r, n, label=None):
         nonlocal angle, tilt, roll
         for i in range(n):
             t = i / (n - 1) if n > 1 else 1.0
             if i % sub == 0:
                 snap(scale0 + (scale1 - scale0) * t, clip0 + (clip1 - clip0) * t,
-                     active, r_ref, label)
+                     active, circle_r, label)
             tumble()
 
-    def hold(scale, clip, active, r_ref, n, label):
+    def hold(scale, clip, active, circle_r, n, label):
         for i in range(n):
             if i % sub == 0:
-                snap(scale, clip, active, r_ref, label)
+                snap(scale, clip, active, circle_r, label)
             tumble()
 
     # The journey: zoom into each subshell (outermost to innermost),
@@ -615,15 +616,16 @@ def dissection_animation_gif(z=DEFAULT_DISSECT_GIF_Z):
     for k, (n, ell, letter, subshell_str, ecount, r_ref) in enumerate(plan, start=1):
         target_scale = DISSECT_TARGET_PX / max(r_ref, 1e-6)
         title = _dissect_title(n, ell, ecount, k, len(plan), sym)
+        peak_r = preset.peak_r_by_subshell[(n, ell)]
         ease(prev_scale, target_scale, DISSECT_CLIP_CLOSED, DISSECT_CLIP_CLOSED, (n, ell),
-             r_ref, DISSECT_ZOOM_FRAMES, title)
-        hold(target_scale, DISSECT_CLIP_CLOSED, (n, ell), r_ref,
+             peak_r, DISSECT_ZOOM_FRAMES, title)
+        hold(target_scale, DISSECT_CLIP_CLOSED, (n, ell), peak_r,
              hold_frames, title)
         prev_scale = target_scale
 
     # Zoom back out to the resting scale, full cloud again.
     ease(prev_scale, base_scale, DISSECT_CLIP_CLOSED, DISSECT_CLIP_CLOSED, None,
-         preset.r_ref, DISSECT_ZOOM_FRAMES)
+         preset.peak_r, DISSECT_ZOOM_FRAMES)
 
     save_gif(frames, 'dissect_%s.gif' % sym)
 
