@@ -85,6 +85,7 @@ struct AtomSubshellRange
 {
     int n, ell, occ;
     int startIndex, count;
+    orb_real_t peakR; // radius of maximum radial density (bohr, after size calibration) -- see OuterSubshell
 };
 
 /**
@@ -173,6 +174,11 @@ struct OuterSubshell
 {
     int n = 0, ell = 0;
     orb_real_t rRef = orb_real_t(1);
+    // Same subshell's radius of maximum radial density (bohr) -- the Clementi-Raimondi
+    // definition of atomic radius, and the radius the size calibration pins to the literature
+    // value. Drawn as the bounding circle; rRef (p90, ~1.7-3x larger) stays the framing
+    // reference, since a circle at p90 corresponds to no quoted radius.
+    orb_real_t peakR = orb_real_t(1);
 };
 
 [[nodiscard]] OuterSubshell outerSubshellRRef(const AtomPoint *points, const AtomSubshellRange *ranges, int rangeCount);
@@ -183,6 +189,7 @@ struct DissectionEntry
 {
     int n, ell;
     orb_real_t rRef;
+    orb_real_t peakR;      // radius of maximum radial density, see OuterSubshell::peakR
     int occ;               // this subshell's own electron count, e.g. 4 for 2p4 -- see ElectronConfig::occ
     int startIndex, count; // contiguous point-index range in the AtomPoint array this subshell owns
 };

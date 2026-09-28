@@ -37,12 +37,14 @@ void AtomPresetState::load(int zIn)
     baseScale = scale.baseScale;
     zoomAmplitude = scale.zoomAmplitude;
     rRef = scale.rRef;
+    peakR = outer.peakR;
     z = zIn;
 
     loadMs = (esp_timer_get_time() - startUs) / 1000;
-    ESP_LOGI(kAtomViewTag, "%s loaded in %lldms, outer=%d%c, outerRBohr=%.2f, scale=%.1f, outerRPx=%.1f",
+    ESP_LOGI(kAtomViewTag,
+             "%s loaded in %lldms, outer=%d%c, outerRBohr=%.2f, peakRPm=%.0f, scale=%.1f, outerRPx=%.1f",
              elementSymbol(zIn), loadMs, outer.n, subshellLabelChar(outer.ell), double(outer.rRef),
-             double(baseScale), double(outer.rRef * baseScale));
+             double(outer.peakR * kPmPerBohr), double(baseScale), double(outer.rRef * baseScale));
 }
 
 void drawAtomTitle(Display &display, int x, int y, int z, uint16_t textColor)
@@ -60,7 +62,7 @@ void renderAtomFrame(Display &display, const AtomPresetState &preset, const Came
     renderSceneGrouped(display, preset.points, preset.groups, preset.groupCount, kProtonColor, camera, scale,
                        frameSalt, buzzThreshold);
     drawProtonMarker(display, kProtonColor, kAtomProtonMarkerSize);
-    drawBoundingCircle(display, preset.rRef, scale, kBoundingCircleColor);
+    drawBoundingCircle(display, preset.peakR, scale, kBoundingCircleColor);
     drawAtomTitle(display, kTitleTextX, kTitleTextY, preset.z, kTextColor);
     // Z number in the top-right corner, so the user can see it while browsing the periodic table.
     char zLabel[4];
@@ -236,14 +238,14 @@ namespace
     /// camera.h's kHiddenPointsFraction); the caller owns the per-call frameSalt counter.
     void renderDissectFrame(Display &display, const AtomPoint *points, const PointGroup *groups, int groupCount,
                             uint16_t protonColor, uint16_t textColor, uint16_t scaleBarColor, const CameraState &camera,
-                            orb_real_t scale, orb_real_t rRef, const char *bigLabel, const char *caption, int occ,
+                            orb_real_t scale, orb_real_t circleR, const char *bigLabel, const char *caption, int occ,
                             uint32_t frameSalt = 0, uint32_t buzzThreshold = 0)
     {
         display.waitForFlushDone();
         renderSceneGrouped(display, points, groups, groupCount, protonColor, camera, scale, frameSalt,
                            buzzThreshold);
         drawProtonMarker(display, protonColor, kAtomProtonMarkerSize);
-        drawBoundingCircle(display, rRef, scale, kBoundingCircleColor);
+        drawBoundingCircle(display, circleR, scale, kBoundingCircleColor);
         drawDissectTitle(display, kTitleTextX, kTitleTextY, textColor, bigLabel, caption, occ);
         drawScaleBar(display, scale / kPmPerBohr, "pm", scaleBarColor, textColor);
         display.presentFrame();
@@ -276,7 +278,7 @@ namespace
     template <typename TitleDrawFn>
     bool easeScaleTimed(Display &display, const AtomPoint *points, const PointGroup *groups, int groupCount,
                         TitleDrawFn drawTitle, uint16_t protonColor, uint16_t textColor, uint16_t scaleBarColor,
-                        CameraState &camera, orb_real_t startScale, orb_real_t endScale, orb_real_t rRef,
+                        CameraState &camera, orb_real_t startScale, orb_real_t endScale, orb_real_t circleR,
                         uint32_t durationMs, TiltGestureDetector *tilt = nullptr, uint32_t buzzThreshold = 0)
     {
         int64_t startUs = esp_timer_get_time();
@@ -301,7 +303,7 @@ namespace
             renderSceneGrouped(display, points, groups, groupCount, protonColor, camera, scale, frameSalt,
                                buzzThreshold);
             drawProtonMarker(display, protonColor, kAtomProtonMarkerSize); // keep it visible over the cloud
-            drawBoundingCircle(display, rRef, scale, kBoundingCircleColor);
+            drawBoundingCircle(display, circleR, scale, kBoundingCircleColor);
             drawTitle(display, kTitleTextX, kTitleTextY, textColor);
             drawScaleBar(display, scale / kPmPerBohr, "pm", scaleBarColor, textColor);
             display.presentFrame();
@@ -431,7 +433,7 @@ namespace
                      subshellLabelChar(active.ell), visibleCount, level, dissectPlanCount, flyMs);
 
             bool completed = easeScaleTimed(display, preset.points, levelGroups, levelGroupCount, title, protonColor,
-                                            textColor, scaleBarColor, camera, scale, s.baseScale, active.rRef, flyMs,
+                                            textColor, scaleBarColor, camera, scale, s.baseScale, active.peakR, flyMs,
                                             &tilt, kHiddenPointsThreshold);
             scale = s.baseScale;
             prevRRef = active.rRef;
@@ -454,7 +456,7 @@ namespace
                     break;
                 }
                 renderDissectFrame(display, preset.points, levelGroups, levelGroupCount, protonColor, textColor,
-                                   scaleBarColor, camera, scale, active.rRef, bigLabel, caption, active.occ,
+                                   scaleBarColor, camera, scale, active.peakR, bigLabel, caption, active.occ,
                                    holdFrameSalt, kHiddenPointsThreshold);
                 stepCamera(&camera);
                 holdFrameSalt++;
@@ -473,7 +475,7 @@ namespace
             drawAtomTitle(d, x, y, preset.z, color);
         };
         easeScaleTimed(display, preset.points, preset.groups, preset.groupCount, fullTitle, protonColor, textColor,
-                       scaleBarColor, camera, scale, preset.baseScale, preset.rRef, returnFlyMs, nullptr,
+                       scaleBarColor, camera, scale, preset.baseScale, preset.peakR, returnFlyMs, nullptr,
                        kHiddenPointsThreshold);
 
         // Brief settle hold on the full atom (still tumbling) before returning control, so a
@@ -537,7 +539,7 @@ int renderAtomDissectFrame(Display &display, const AtomPresetState &preset, cons
 
     renderSceneGrouped(display, preset.points, groups, groupCount, kProtonColor, camera, s.baseScale);
     drawProtonMarker(display, kProtonColor, kAtomProtonMarkerSize);
-    drawBoundingCircle(display, active.rRef, s.baseScale, kBoundingCircleColor);
+    drawBoundingCircle(display, active.peakR, s.baseScale, kBoundingCircleColor);
     drawDissectTitle(display, kTitleTextX, kTitleTextY, kTextColor, bigLabel, caption, active.occ);
     drawScaleBar(display, s.baseScale / kPmPerBohr, "pm", kScaleBarColor, kTextColor);
     return planCount;

@@ -92,10 +92,10 @@ def clementi_size_factor(radial_tables, z):
     valence-subshell mode radius.
 
     With the SPARC-atomSFE tables (`radial_tables`): the LDA eigenvalues are
-    NIST-exact (~1e-6 Ha, pc/nist_compare_atomsfe.py) but the valence
-    orbitals are more diffuse than the HF-based Clementi-Raimondi reference
-    (LDA self-interaction error -- worst for light elements: H ~2.2x,
-    period 2 ~1.7x, Fe ~1.1x). Without tables (hydrogenic model): the
+    NIST-exact (~1e-6 Ha, pc/nist_compare_atomsfe.py) and the raw valence
+    mode radii land within ~0.8-1.2x of the HF-based Clementi-Raimondi
+    reference (H ~1.06x, Fe ~0.83x, U ~1.23x -- LDA vs HF plus the missing
+    relativistic contraction past Z~55). Without tables (hydrogenic model): the
     z_eff substitution already matches CR for the lightest elements but
     drifts for alkali/transition metals and strongly past Z=54 (Slater
     fallback) -- atom_size_calib.py carries the hydrogenic factors

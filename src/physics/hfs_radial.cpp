@@ -130,6 +130,14 @@ orb_real_t hfsRLookup(orb_real_t r, const orb_real_t *u)
     return interpOnGrid(r, sR, u, kHfsGridSize) / r;
 }
 
+/// Mode of u^2 on the table's own grid -- shared by both builders below so a subshell reports
+/// the same peak radius whichever sampler (isotropic or Hund's-rule oriented) draws it.
+static orb_real_t hfsPeakR(const orb_real_t *u)
+{
+    return radialModeOnGrid(
+        kHfsGridSize, [](int i) { return sR[i]; }, [u](int i) { return u[i] * u[i]; });
+}
+
 const RadialTable &buildHfsRadialSamplerIsotropic(const orb_real_t *u)
 {
     static RadialTable rt;
@@ -137,6 +145,7 @@ const RadialTable &buildHfsRadialSamplerIsotropic(const orb_real_t *u)
     for (int i = 0; i < kHfsGridSize; i++)
         weight[i] = u[i] * u[i];
     rt.maxR = sR[kHfsGridSize - 1];
+    rt.peakR = hfsPeakR(u);
     buildInverseCdfFromGrid(weight, sR, kHfsGridSize, rt.invRTable, kOrbitalTableSize);
     return rt;
 }
@@ -147,6 +156,7 @@ const RadialTable &buildHfsRadialSamplerOriented(const orb_real_t *u)
     static orb_real_t weight[kOrbitalTableSize];
     orb_real_t maxR = sR[kHfsGridSize - 1];
     rt.maxR = maxR;
+    rt.peakR = hfsPeakR(u);
     orb_real_t deltaR = maxR / orb_real_t(kOrbitalTableSize - 1);
     for (int i = 0; i < kOrbitalTableSize; i++)
     {
