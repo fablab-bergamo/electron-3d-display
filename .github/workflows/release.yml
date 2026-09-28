@@ -57,8 +57,10 @@ jobs:
             echo "::error::release '$TAG' already exists"; exit 1
           fi
           # A tag left by an earlier failed run is reused only if it is on this commit.
-          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null || true)
-          if [ -n "$tag_sha" ] && [ "$tag_sha" != "$GITHUB_SHA" ]; then
+          # Decide on gh's exit status: on a 404 (no such tag) it prints the error
+          # JSON on stdout, so the captured text alone is not a SHA.
+          if tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq .object.sha 2>/dev/null) &&
+             [ "$tag_sha" != "$GITHUB_SHA" ]; then
             echo "::error::tag '$TAG' already exists on $tag_sha, not on $GITHUB_SHA"; exit 1
           fi
 
