@@ -6,6 +6,23 @@ Questa guida copre il firmware C++ in `src/` (il porting PlatformIO/ESP-IDF),
 compilato e flashato sulla **Waveshare ESP32-S3-LCD-1.3**. Per il firmware
 MicroPython vedi invece [`micropython/README.it.md`](micropython/README.it.md).
 
+## Via rapida: flashare un'immagine di release (senza toolchain)
+
+Ogni [release GitHub](https://github.com/fablab-bergamo/electron-3d-display/releases)
+contiene un `.bin` pronto da flashare per ciascuna scheda (bootloader +
+tabella partizioni + firmware + partizione dati, uniti all'offset 0x0):
+
+```sh
+pip install esptool
+esptool.py --chip esp32s3 write_flash 0x0 electron-3d-display-<tag>-waveshare-esp32-s3-lcd-1.3.bin
+esptool.py --chip esp32   write_flash 0x0 electron-3d-display-<tag>-cyd-esp32-2432s028r.bin
+```
+
+oppure https://espressif.github.io/esptool-js/ dal browser (indirizzo 0x0).
+Le release si creano a mano dalla tab Actions (**Release firmware** → Run
+workflow → tag), che compila entrambe le immagini con
+`tools/build_merged_bin.py`. Il resto del file descrive la build dai sorgenti.
+
 ## Toolchain
 
 | | |
