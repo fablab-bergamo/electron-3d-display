@@ -26,8 +26,11 @@ import atom_cloud
 import slater
 
 # Step shape:
-#   ('ease', scale0, scale1, clip0, clip1, active_subshell, r_ref, frames, title, full_tumble)
-#   ('hold', scale, clip, active_subshell, r_ref, hold_duration, title)
+#   ('ease', scale0, scale1, clip0, clip1, active_subshell, circle_r, frames, title, full_tumble)
+#   ('hold', scale, clip, active_subshell, circle_r, hold_duration, title)
+# circle_r is the bounding-circle radius (Bohr): the peak radius (radius of
+# maximum radial density) of the active subshell, or of the outermost one
+# when none is active -- see atom_cloud.subshell_peak_radii().
 # title is (big_label, caption, electron_count) or None -- see
 # build_dissection_steps()'s docstring.
 
@@ -104,6 +107,14 @@ class AtomPreset:
         # the first shell's own depth and to pace their duration by how many
         # subshells this element actually has.
         self.inner_r_ref = outer_plan[-1][5] if outer_plan else r_ref
+        # Radius of maximum radial density per subshell (after size_factor)
+        # -- where the bounding circle is drawn (r_ref above, p90, stays the
+        # framing reference). peak_r is the valence subshell's, i.e. the
+        # Clementi-Raimondi radius the size calibration targets. See
+        # atom_cloud.subshell_peak_radii()/valence_subshell().
+        self.peak_r_by_subshell = atom_cloud.subshell_peak_radii(
+            z, config, radial_tables=radial_tables, size_factor=size_factor)
+        self.peak_r = self.peak_r_by_subshell[atom_cloud.valence_subshell(config)]
         self.shell_count = len(outer_plan) if outer_plan else 1
         self._np_cache = None  # numpy fast-path arrays; rebuilt lazily (see render_core.preset_np)
 
@@ -123,7 +134,7 @@ def dissection_plan(preset):
         preset.xs, preset.ys, preset.zs, preset.shells, preset.ells, preset.config)
 
 
-def build_dissection_steps(plan, r_ref, resting_scale, outer_scale, inner_scale,
+def build_dissection_steps(plan, peak_r_by_subshell, peak_r, resting_scale, outer_scale, inner_scale,
                             orient_frames, zoom_frames, close_frames, hold_duration,
                             target_px, clip_open, clip_closed, element_symbol):
     """The full Phase 0-5 shell-dissection sequence as a flat list of opaque
@@ -150,27 +161,33 @@ def build_dissection_steps(plan, r_ref, resting_scale, outer_scale, inner_scale,
     title = (subshell_label, "<Sym> (i/N)", electron_count) for Phase 2's
     ease+hold pair, None everywhere else -- built here so callers don't
     duplicate that format string either.
+
+    Each step's circle_r is the bounding-circle radius: the active
+    subshell's peak radius (peak_r_by_subshell, AtomPreset's) in Phase 2,
+    the outermost subshell's (peak_r) everywhere else. Zoom targets still
+    come from the plan's p90 radii.
     """
     steps = []
     steps.append(('ease', resting_scale, outer_scale, clip_closed, clip_closed,
-                  None, r_ref, zoom_frames, None, True))
+                  None, peak_r, zoom_frames, None, True))
     steps.append(('ease', outer_scale, outer_scale, clip_closed, clip_open,
-                  None, r_ref, orient_frames, None, False))
+                  None, peak_r, orient_frames, None, False))
 
     prev_scale = outer_scale
     for i, (n, ell, _letter, _subshell_str, electron_count, sub_r_ref) in enumerate(plan):
         target_scale = inner_scale if i == len(plan) - 1 else target_px / max(sub_r_ref, 1e-6)
         subshell_label = slater.subshell_label(n, ell)
         title = (subshell_label, "%s (%d/%d)" % (element_symbol, i + 1, len(plan)), electron_count)
+        sub_peak_r = peak_r_by_subshell.get((n, ell), sub_r_ref)
         steps.append(('ease', prev_scale, target_scale, clip_open, clip_open,
-                      (n, ell), sub_r_ref, zoom_frames, title, False))
-        steps.append(('hold', target_scale, clip_open, (n, ell), sub_r_ref, hold_duration, title))
+                      (n, ell), sub_peak_r, zoom_frames, title, False))
+        steps.append(('hold', target_scale, clip_open, (n, ell), sub_peak_r, hold_duration, title))
         prev_scale = target_scale
 
     steps.append(('ease', prev_scale, outer_scale, clip_open, clip_open,
-                  None, r_ref, zoom_frames, None, False))
+                  None, peak_r, zoom_frames, None, False))
     steps.append(('ease', outer_scale, outer_scale, clip_open, clip_closed,
-                  None, r_ref, close_frames, None, False))
+                  None, peak_r, close_frames, None, False))
     steps.append(('ease', outer_scale, resting_scale, clip_closed, clip_closed,
-                  None, r_ref, zoom_frames, None, True))
+                  None, peak_r, zoom_frames, None, True))
     return steps

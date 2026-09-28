@@ -611,7 +611,7 @@ class AtomViewApp:
         def overlays(draw):
             # Neutral gray bounding circle (default BOUNDING_SPHERE_COLOR --
             # deliberately not shell-colored).
-            draw_orbit_marker(draw, self.preset.r_ref, scale, self.angle, self.tilt_angle, self.roll_angle,
+            draw_orbit_marker(draw, self.preset.peak_r, scale, self.angle, self.tilt_angle, self.roll_angle,
                                marker_text=slater.element_symbol(self.z))
             # Scale (px per Bohr radius, THIS frame -- varies with zoom
             # breathing/excursions) -> px per picometer, so the bar always
@@ -627,7 +627,7 @@ class AtomViewApp:
                           fill=(255, 220, 40), font=_TITLE_FONT)
         blit_to_canvas(self, overlays)
 
-    def _blit_dissection(self, scale, r_ref, title):
+    def _blit_dissection(self, scale, circle_r, title):
         """Like _blit(), but for dissection frames: the rotating spoke/text
         part of draw_orbit_marker() is skipped -- just its plain gray
         bounding-circle outline (draw_bounding_circle(), neutral
@@ -641,7 +641,7 @@ class AtomViewApp:
         to the nucleus.
         """
         def overlays(draw):
-            draw_bounding_circle(draw, r_ref, scale)
+            draw_bounding_circle(draw, circle_r, scale)
             draw_scale_bar(draw, scale / atom_cloud.PM_PER_BOHR, "pm")
             if title is not None:
                 big_label, caption, occ = title
@@ -940,7 +940,7 @@ class AtomViewApp:
         inner_scale = inner_bound_scale(self.preset.inner_r_ref)
 
         steps = atom_dissection_common.build_dissection_steps(
-            plan, self.preset.r_ref, resting_scale, outer_scale, inner_scale,
+            plan, self.preset.peak_r_by_subshell, self.preset.peak_r, resting_scale, outer_scale, inner_scale,
             orient_frames, zoom_frames, close_frames, DISSECT_HOLD_SECONDS,
             DISSECT_TARGET_PX, DISSECT_CLIP_OPEN, DISSECT_CLIP_CLOSED,
             slater.element_symbol(self.z))
