@@ -10,6 +10,8 @@
 #include "render/display.h"
 #include "ux/tilt_gesture.h"
 
+class OrientationTracker;
+
 /**
  * Guided one-time direction calibration: prompts the user to tilt-and-hold each of
  * Right/Left/Up/Down in turn (the same physical gesture as normal use -- see
@@ -25,5 +27,8 @@ void calibrateDirections(Display &display, TiltGestureDetector &tilt);
 /** Runs forever: shows the menu, launches a viewer on tilt-hold confirm, and shows the
  * menu again whenever that viewer returns (its own tilt-hold Up). Also auto-launches a
  * viewer -- coin-flipping orbitals vs. elements -- after 30s of no confirmed tilt-hold,
- * so the splash doesn't sit idle forever (see chooser.cpp's kChooserIdleJumpUs). */
-void runChooser(Display &display, TiltGestureDetector &tilt);
+ * so the splash doesn't sit idle forever (see chooser.cpp's kChooserIdleJumpUs).
+ * `tilt` is any GestureSource (tilt_gesture.h). `orientation` is forwarded unchanged into the
+ * launched viewers
+ * (see ux/orientation_tracker.h). */
+void runChooser(Display &display, GestureSource &tilt, OrientationTracker *orientation);

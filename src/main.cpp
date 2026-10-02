@@ -19,9 +19,12 @@
 #include "sdkconfig.h" // CONFIG_IDF_TARGET_ESP32
 
 #include "ux/imu.h"
+#include "ux/orientation_tracker.h"
 #include "debug/screenshot_console.h"
 #include "render/splash_bitmap.h"
 #include "config/hardware_constants.h"
+#include "config/network_constants.h" // kWebRemoteEnabled, kTiltNavigationEnabled
+#include "net/web_remote.h"
 #include "config/visual_constants.h" // kSplashHoldMs
 #include "ux/tilt_gesture.h"
 #include "util/storage_mount.h"
@@ -92,6 +95,15 @@ extern "C" void app_main(void)
     // kOrbitalNumPoints comment. That RAM instead goes toward restoring full 240x320 resolution
     // (Display::kDisplayWidth/Height) and a higher point count.
 
+    // After Display (its DMA frame buffers need the internal heap first; a Wi-Fi failure
+    // is only logged, the hologram then just runs tilt-only) and before the splash, so the
+    // access point is already up by the time the menu appears.
+    if constexpr (kWebRemoteEnabled)
+    {
+        startWebRemote();
+        logMemory("startup: web remote");
+    }
+
     display.waitForFlushDone();
     drawSplashScreen(display);
     display.presentFrame();
@@ -117,9 +129,23 @@ extern "C" void app_main(void)
     // tilt navigation on this board -- see CYD-branch.md.
     ESP_LOGW(kMainTag, "CYD build: chooser has no working input -- auto-launching orbital viewer in 5s");
     vTaskDelay(pdMS_TO_TICKS(5000));
-    runOrbitalView(display, tilt);
+    runOrbitalView(display, tilt, nullptr); // no IMU -- synthetic auto-rotation
 #else
-    if (imu.checkPlanarAtBoot())
+    OrientationTracker orientation{imu};
+    // Gyro bias/rest-pose calibration cannot be skipped via a hardcoded default like the
+    // accelerometer's planar baseline below (see ux/orientation_tracker.h's calibrate()
+    // doc comment) -- runs every boot, ~1s, board still resting from the splash hold.
+    orientation.calibrate();
+    setCameraDriver(&orientation); // every stepCamera() (fly-overs too) now follows the IMU
+
+    if constexpr (!kTiltNavigationEnabled)
+    {
+        ESP_LOGI(kMainTag, "tilt navigation disabled (web remote drives selection) -- skipping direction calibration");
+        NullGestureSource noGestures{};
+        logMemory("startup: chooser");
+        runChooser(display, noGestures, &orientation);
+    }
+    else if (imu.checkPlanarAtBoot())
     {
         ESP_LOGI(kMainTag, "boot: planar check OK, using hardcoded calibration");
         tilt.setBaseline(kDefaultBaselineX, kDefaultBaselineY, kDefaultBaselineZ);
@@ -136,8 +162,11 @@ extern "C" void app_main(void)
         calibrateDirections(display, tilt);
         tilt.logCalibrationForHardcode();
     }
-    logMemory("startup: chooser");
-    runChooser(display, tilt);
+    if constexpr (kTiltNavigationEnabled)
+    {
+        logMemory("startup: chooser");
+        runChooser(display, tilt, &orientation);
+    }
 #endif
 #endif
 }
