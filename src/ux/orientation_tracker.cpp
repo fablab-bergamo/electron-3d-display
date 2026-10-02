@@ -162,7 +162,7 @@ void OrientationTracker::step(CameraState *cam)
 
 orb_real_t OrientationTracker::tiltRad() const
 {
-    return std::clamp(fusedPitch_ * cfg_.rotationGain, -cfg_.tiltClampRad, cfg_.tiltClampRad);
+    return std::clamp(fusedPitch_ * cfg_.rotationGain * cfg_.pitchGainBoost, -cfg_.tiltClampRad, cfg_.tiltClampRad);
 }
 
 orb_real_t OrientationTracker::rollRad() const

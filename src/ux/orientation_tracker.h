@@ -40,6 +40,10 @@ struct OrientationTrackerConfig
     /// near-spherical cloud, so small hand tilts are amplified instead.
     orb_real_t rotationGain = orb_real_t(3.0);
 
+    /// Extra multiplier applied to the pitch (tilt up/down) axis only, on top of rotationGain:
+    /// up/down read as less pronounced than left/right at the same gain.
+    orb_real_t pitchGainBoost = orb_real_t(1.5);
+
     /// Symmetric clamp (radians) on the reported tilt/roll, applied AFTER rotationGain -- i.e. a
     /// limit on the rendered camera angle, not on the physical tilt. Physical tilt is already
     /// bounded by the navigation gesture (~27 degrees, see rotationGain), so this only guards
