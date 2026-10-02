@@ -17,6 +17,8 @@
 #include "debug/screenshot_pause.h"
 #include "physics/slater.h"
 #include "config/visual_constants.h" // kAccentColor, kViewIdleJumpUs, kAtomProtonMarkerSize, kBoundingCircleColor, kElementIntro*, kDissect*, kFpsUpdateInterval
+#include "ux/orientation_tracker.h"
+#include "ux/remote_command.h"
 
 static const char *kAtomViewTag = "atom_view";
 
@@ -261,6 +263,15 @@ namespace
         return ms < kDissectFlyMinMs ? kDissectFlyMinMs : ms;
     }
 
+    /// Web-remote counterpart of the second Right tilt-hold that cancels a running dissection:
+    /// any pending request cancels it. A kDissect request is consumed here (it IS the cancel,
+    /// same toggle semantics as the tilt); anything else stays in the mailbox for
+    /// runAtomView()'s loop to act on once the sequence has eased back to the full atom.
+    bool remoteCancelsDissection()
+    {
+        return remote::takeIf(remote::Command::kDissect) || remote::pending();
+    }
+
     /**
      * @brief Like camera.h's flyOver(), but eases `startScale` -> `endScale` over `durationMs`
      *        of real time (esp_timer) instead of a fixed frame count.
@@ -279,7 +290,7 @@ namespace
     bool easeScaleTimed(Display &display, const AtomPoint *points, const PointGroup *groups, int groupCount,
                         TitleDrawFn drawTitle, uint16_t protonColor, uint16_t textColor, uint16_t scaleBarColor,
                         CameraState &camera, orb_real_t startScale, orb_real_t endScale, orb_real_t circleR,
-                        uint32_t durationMs, TiltGestureDetector *tilt = nullptr, uint32_t buzzThreshold = 0)
+                        uint32_t durationMs, GestureSource *tilt = nullptr, uint32_t buzzThreshold = 0)
     {
         int64_t startUs = esp_timer_get_time();
         int64_t durationUs = int64_t(durationMs) * 1000;
@@ -289,7 +300,8 @@ namespace
             if (tilt)
             {
                 TiltEvent ev = tilt->poll();
-                if (ev.phase == TiltPhase::kConfirmed && ev.direction == TiltDirection::kRight)
+                if ((ev.phase == TiltPhase::kConfirmed && ev.direction == TiltDirection::kRight) ||
+                    remoteCancelsDissection())
                     return false;
             }
 
@@ -398,7 +410,7 @@ namespace
      * cancelled dissection lands back on the full element exactly like a finished one does.
      */
     void runDissectionSequence(Display &display, AtomPresetState &preset, CameraState &camera, uint16_t protonColor,
-                               uint16_t textColor, uint16_t scaleBarColor, TiltGestureDetector &tilt)
+                               uint16_t textColor, uint16_t scaleBarColor, GestureSource &tilt)
     {
         showElectronConfigIntro(display, elementNameIt(preset.z));
 
@@ -439,7 +451,7 @@ namespace
             prevRRef = active.rRef;
             if (!completed)
             {
-                ESP_LOGI(kAtomViewTag, "dissection cancelled -- tilt RIGHT confirmed mid-fly");
+                ESP_LOGI(kAtomViewTag, "dissection cancelled -- tilt RIGHT / web remote mid-fly");
                 break;
             }
 
@@ -449,9 +461,10 @@ namespace
             while (esp_timer_get_time() - holdStartUs < kDissectHoldUs)
             {
                 TiltEvent ev = tilt.poll();
-                if (ev.phase == TiltPhase::kConfirmed && ev.direction == TiltDirection::kRight)
+                if ((ev.phase == TiltPhase::kConfirmed && ev.direction == TiltDirection::kRight) ||
+                    remoteCancelsDissection())
                 {
-                    ESP_LOGI(kAtomViewTag, "dissection cancelled -- tilt RIGHT confirmed during hold");
+                    ESP_LOGI(kAtomViewTag, "dissection cancelled -- tilt RIGHT / web remote during hold");
                     aborted = true;
                     break;
                 }
@@ -545,7 +558,7 @@ int renderAtomDissectFrame(Display &display, const AtomPresetState &preset, cons
     return planCount;
 }
 
-void runAtomView(Display &display, TiltGestureDetector &tilt)
+void runAtomView(Display &display, GestureSource &tilt, OrientationTracker *orientation, int startZ)
 {
     ESP_LOGI(kAtomViewTag, "display ready, Z=1..%d available", kMaxDisplayZ);
 
@@ -556,7 +569,10 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
     // boot.
     static EXT_RAM_BSS_ATTR AtomPresetState preset;
     if (preset.z == 0)                  // first-ever call this boot -- later calls (after a menu round-trip)
-        preset.load(kAtomViewDefaultZ); // keep whatever element was last showing
+        preset.load(startZ > 0 ? startZ : kAtomViewDefaultZ); // keep whatever element was last showing
+    else if (startZ > 0 && startZ != preset.z) // web remote picked an element (ux/remote_command.h)
+        preset.load(startZ);
+    remote::publishState({remote::ViewMode::kElement, preset.z});
     refreshDissectPlan(preset);
 
     CameraState camera;
@@ -567,6 +583,8 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
 
     FrameStats stats; // FPS + render/prepare moving averages + last-load-ms + free IRAM, see debug/frame_stats.h
     stats.reset();
+    if (orientation)
+        orientation->resync(); // intro fly-over above spent real time without a normal update()
     stats.lastLoadMs = preset.loadMs;
     uint32_t buzzFrame = 0; // per-frame salt for renderSceneGrouped()'s hidden-points buzz, see camera.h
     int zoomExcursionCountdown = nextZoomExcursionCountdown();
@@ -581,6 +599,8 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
     auto switchToElement = [&](int newZ)
     {
         ESP_LOGI(kAtomViewTag, "switching element Z %d -> %d (%s)", preset.z, newZ, elementNameIt(newZ));
+        remote::publishState({remote::ViewMode::kElement, newZ}); // before the multi-second intro, so the phone
+                                                                  // shows the new pick right away
         orb_real_t currentScale = preset.baseScale + preset.zoomAmplitude * std::sin(zoomAngle);
         scrollElementIntro(display, elementNameIt(newZ), newZ, elementSymbol(newZ), kAccentColor);
         preset.load(newZ);
@@ -595,6 +615,27 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
         // time without incrementing frameCount; reset the FPS window here so it only ever
         // measures steady-state frames instead of charging that idle time to a later window.
         stats.reset();
+        if (orientation)
+            orientation->resync();
+    };
+
+    // Shared by the Right tilt-hold and the web remote's kDissect.
+    auto dissect = [&]()
+    {
+        if (dissectPlanCount > 0)
+        {
+            ESP_LOGI(kAtomViewTag, "starting automatic dissection (%d shells)", dissectPlanCount);
+            runDissectionSequence(display, preset, camera, kProtonColor, kTextColor, kScaleBarColor, tilt);
+        }
+        else
+        {
+            ESP_LOGI(kAtomViewTag, "no subshells to dissect");
+        }
+        zoomAngle = orb_real_t(0);
+        zoomExcursionCountdown = nextZoomExcursionCountdown();
+        stats.reset(); // see switchToElement()'s FPS-window comment above
+        if (orientation)
+            orientation->resync();
     };
 
     while (true)
@@ -624,20 +665,39 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
             }
             if (tiltEv.direction == TiltDirection::kRight)
             {
-                if (dissectPlanCount > 0)
-                {
-                    ESP_LOGI(kAtomViewTag, "tilt RIGHT confirmed -- starting automatic dissection (%d shells)",
-                             dissectPlanCount);
-                    runDissectionSequence(display, preset, camera, kProtonColor, kTextColor, kScaleBarColor, tilt);
-                }
-                else
-                {
-                    ESP_LOGI(kAtomViewTag, "tilt RIGHT confirmed -- no subshells to dissect");
-                }
-                zoomAngle = orb_real_t(0);
-                zoomExcursionCountdown = nextZoomExcursionCountdown();
-                stats.reset(); // see switchToElement()'s FPS-window comment above
+                ESP_LOGI(kAtomViewTag, "tilt RIGHT confirmed");
+                dissect();
                 continue;
+            }
+        }
+
+        // Web remote (net/web_remote.cpp): same actions as the tilt gestures above.
+        remote::Request request = remote::take();
+        if (request.cmd != remote::Command::kNone)
+        {
+            lastActivityUs = esp_timer_get_time();
+            switch (request.cmd)
+            {
+            case remote::Command::kShowElement:
+                if (request.arg != preset.z)
+                    switchToElement(request.arg);
+                continue;
+            case remote::Command::kNext:
+            case remote::Command::kPrev:
+                switchToElement(periodicTableSnakeStep(preset.z, request.cmd == remote::Command::kNext ? 1 : -1));
+                continue;
+            case remote::Command::kDissect:
+                ESP_LOGI(kAtomViewTag, "web remote: dissect");
+                dissect();
+                continue;
+            case remote::Command::kMenu:
+                ESP_LOGI(kAtomViewTag, "web remote -- returning to menu");
+                return;
+            case remote::Command::kShowOrbital: // not this viewer's -- chooser relaunches into orbital_view
+                remote::postIfEmpty(request);
+                return;
+            case remote::Command::kNone:
+                break;
             }
         }
 
@@ -657,6 +717,8 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
                 zoomAngle = orb_real_t(0);
                 zoomExcursionCountdown = nextZoomExcursionCountdown();
                 stats.reset(); // see switchToElement()'s FPS-window comment above
+                if (orientation)
+                    orientation->resync();
             }
             else
             {
@@ -684,6 +746,8 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
             zoomAngle = orb_real_t(0);
             zoomExcursionCountdown = nextZoomExcursionCountdown();
             stats.reset(); // see switchToElement()'s FPS-window comment above
+            if (orientation)
+                orientation->resync();
             continue;
         }
 
@@ -701,6 +765,8 @@ void runAtomView(Display &display, TiltGestureDetector &tilt)
         stats.recordFrame(double(tAfterWait - tBeforeWait) / 1000.0, double(tAfterPresent - tAfterWait) / 1000.0);
         stats.maybeLog(kAtomViewTag);
 
+        // IMU-driven via OrientationTracker's CameraDriver (auto-spin only after 30s idle);
+        // CYD (no IMU) keeps the fixed spin.
         stepCamera(&camera);
         zoomAngle += kZoomAngleStep;
         if (zoomAngle >= kTwoPi)

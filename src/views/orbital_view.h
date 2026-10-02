@@ -12,6 +12,10 @@
  *  - Also auto-advances to a random preset after kViewIdleJumpUs (config/visual_constants.h)
  *    of no tilt input.
  *
+ * Outside of a confirmed tilt-hold gesture, the steady-state view's rotation itself is driven
+ * by the device's physical orientation (see ux/orientation_tracker.h) rather than the fixed-speed
+ * auto-rotation used during fly-overs/transitions -- tilting the board tilts the rendered orbital.
+ *
  * Everything else is full parity with the original viewer: boot fly-in, breathing zoom,
  * random zoom excursions, point turnover ("buzz"), phase coloring.
  */
@@ -23,6 +27,8 @@
 #include "render/display.h"
 #include "physics/orbital_presets.h"
 #include "ux/tilt_gesture.h"
+
+class OrientationTracker;
 
 /// Fixed (not randomized) point-cloud seed, for a reproducible-looking demo across boots.
 inline constexpr uint32_t kOrbitalViewSeed = 12345;
@@ -71,5 +77,14 @@ void renderOrbitalFrame(Display &display, const OrbitalPresetState &preset, cons
  * @brief Run the orbital viewer until a Left tilt-hold confirms.
  * @param display Target display; frames are rendered and presented each loop iteration.
  * @param tilt Gesture source for navigation input.
+ * @param orientation Continuous tilt-driven camera rotation source (see
+ *        ux/orientation_tracker.h) -- nullptr falls back to render/camera.h's synthetic
+ *        auto-rotation.
+ * @param startIndex kOrbitalLibrary index to open on (chooser.cpp passes a web-remote pick
+ *        here, see ux/remote_command.h); -1 = resume whichever preset was shown last.
+ *
+ * Also serves ux/remote_command.h's web-remote requests every frame, mirroring the tilt
+ * gestures above (kNext/kPrev = Down/Up, kMenu = Left); kShowElement/kDissect requests are
+ * handed back to the chooser, which relaunches into atom_view.
  */
-void runOrbitalView(Display &display, TiltGestureDetector &tilt);
+void runOrbitalView(Display &display, GestureSource &tilt, OrientationTracker *orientation, int startIndex = -1);
