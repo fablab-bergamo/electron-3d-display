@@ -1,5 +1,5 @@
 async function initLesson() {
-    await ShellFillingBackend.load();
+    await Promise.all([ShellFillingBackend.load(), ShellFillingRadial.load()]);
     document.getElementById("lesson-controls").disabled = false;
     document.getElementById("loading").hidden = true;
 /* Presentation is separate from the configuration model for headless validation. */
@@ -12,6 +12,53 @@ const requestedElement = Number(new URLSearchParams(location.search).get('z'));
 let target = Number.isInteger(requestedElement) && requestedElement >= 1 && requestedElement <= elements.length ? requestedElement : 8;
 let count = 0;
 let timer = null;
+let inspected = null;
+
+function inspectRadial(state) {
+    const occupied = state.filter(s => s.occupancy);
+    const select = byId('radial-subshell');
+    if (!occupied.some(s => s.label === inspected)) inspected = occupied.at(-1)?.label || null;
+    select.replaceChildren(...occupied.map(s => {
+        const option = document.createElement('option');
+        option.value = option.textContent = s.label;
+        return option;
+    }));
+    select.disabled = !occupied.length;
+    if (inspected) select.value = inspected;
+    atomView.inspect(inspected, byId('isolate').checked);
+    byId('radial-model').textContent = text.radialModel(target);
+    const canvas = byId('radial-chart');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!inspected) { byId('radial-nodes').textContent = text.begin; return; }
+    const subshell = occupied.find(s => s.label === inspected);
+    const source = ShellFillingRadial.source(target, subshell.n, subshell.ell);
+    const maxRadius = source.quantile(0.999);
+    const left = 34, top = 18, width = canvas.width - 52, height = canvas.height - 48;
+    const samples = Array.from({length: 1001}, (_, i) => [maxRadius * i / 1000, source.density(maxRadius * i / 1000)]);
+    const peak = Math.max(...samples.map(row => row[1]));
+    ctx.strokeStyle = '#71829b';
+    ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left, top + height); ctx.lineTo(left + width, top + height); ctx.stroke();
+    ctx.strokeStyle = colors[subshell.n - 1]; ctx.lineWidth = 2;
+    ctx.beginPath();
+    samples.forEach(([r, density], i) => {
+        const x = left + width * r / maxRadius, y = top + height * (1 - density / peak);
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = '#e9eef8'; ctx.font = '13px system-ui';
+    ctx.fillText('P(r)', left + 6, 13);
+    ctx.fillText('0', left, canvas.height - 10);
+    ctx.textAlign = 'right'; ctx.fillText(`${(maxRadius * 52.9177210903).toFixed(1)} pm`, left + width, canvas.height - 10); ctx.textAlign = 'left';
+    ctx.strokeStyle = '#e9eef8'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    source.nodes.filter(r => r < maxRadius).forEach(r => {
+        const x = left + width * r / maxRadius;
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + height); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    byId('radial-nodes').textContent = text.radialNodes(inspected, source.nodes.map(r => (r * 52.9177210903).toFixed(1)));
+    canvas.setAttribute('aria-label', text.radialChart(inspected));
+}
 
 elements.forEach(([symbol], index) => {
     const option = document.createElement('option');
@@ -115,6 +162,7 @@ function render(animate = false) {
     byId('back').disabled = count === 0;
     byId('next').disabled = count === target;
     byId('play').textContent = timer ? text.pause : count === target ? text.replay : text.play;
+    inspectRadial(state);
 }
 
 function play() {
@@ -141,6 +189,8 @@ byId('density').oninput = event => {
     atomView.setDensity(percent);
     byId('density-value').textContent = `${percent}%`;
 };
+byId('radial-subshell').onchange = event => { inspected = event.target.value; inspectRadial(configuration(count, target)); };
+byId('isolate').onchange = () => inspectRadial(configuration(count, target));
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 render();
 

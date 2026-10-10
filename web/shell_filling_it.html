@@ -47,14 +47,13 @@
     #explanation { min-height: 76px; }
     .rules { margin-top: 20px; }
     #atom { display: block; width: 100%; aspect-ratio: 1; border-radius: 12px; }
+    #radial-chart { display: block; width: 100%; height: auto; }
     .atom-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 16px 0; }
     .atom-controls input[type=range] { width: 130px; vertical-align: middle; }
     .totals { grid-column: 1 / -1; }
     fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
     .panels { align-items: start; }
     .panels > section { min-width: 0; }
-    .atom-panel { position: sticky; top: 20px; }
-    @media (max-width: 650px) { .atom-panel { position: static; } }
     @media (max-width: 650px) { .panels { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .new { animation: none; } .fill { transition: none; } }
 </style>
@@ -83,13 +82,21 @@
     <div class="panels">
         <section class="atom-panel">
             <h2>Osserva l’atomo</h2>
-            <canvas id="atom" width="480" height="480" role="img" aria-label="Animazione del riempimento dell’atomo">Nuvole schematiche di probabilità elettronica colorate per guscio. I totali sotto indicano il numero di elettroni.</canvas>
+            <canvas id="atom" width="480" height="480" role="img" aria-label="Animazione del riempimento dell’atomo">Nuvole calcolate di probabilità elettronica, colorate per guscio. I totali sotto indicano il numero di elettroni.</canvas>
             <div class="atom-controls">
                 <label><input id="rotation" type="checkbox" checked> Ruota l’atomo</label>
                 <label>Punti <input id="density" type="range" min="10" max="100" value="40" step="5"> <output id="density-value" for="density">40%</output></label>
             </div>
             <p class="muted">Osserva l’atomo formarsi elettrone dopo elettrone, in sincronia con il diagramma degli orbitali.</p>
-            <p class="muted">Nuvole schematiche di probabilità s, p, d e f a scala fissa. I punti rappresentano la densità di probabilità; raggi e nodi radiali sono semplificati.</p>
+            <p class="muted">Dimensioni e nodi radiali delle nuvole derivano dai calcoli degli orbitali. I punti campionano la probabilità; i colori indicano i gusci. La barra di scala mostra le distanze fisiche.</p>
+            <p id="radial-model" class="muted"></p>
+            <div class="atom-controls">
+                <label>Esamina sottolivello <select id="radial-subshell" disabled></select></label>
+                <label><input id="isolate" type="checkbox"> Mostra solo questo sottolivello</label>
+            </div>
+            <canvas id="radial-chart" width="480" height="180" role="img" aria-label="Distribuzione di probabilità radiale">Probabilità di trovare un elettrone a ogni distanza dal nucleo.</canvas>
+            <p id="radial-nodes" class="muted"></p>
+            <p class="muted">Un nodo radiale è una distanza in cui questo orbitale ha probabilità nulla. Gli altri orbitali possono riempire il vuoto nella nuvola complessiva. Gli orbitali appartengono all’atomo neutro finale e restano fissi durante questa lezione sul riempimento.</p>
         </section>
         <section aria-label="Diagramma di riempimento degli orbitali">
             <h2>Sottolivelli e orbitali</h2>
@@ -118,6 +125,7 @@
     </section>
 </main>
 <script src="shell_filling_model.js"></script>
+<script src="shell_filling_radial.js"></script>
 <script src="shell_filling_locale.js"></script>
 <script src="shell_filling_atom.js"></script>
 <script src="shell_filling_backend.js"></script>
