@@ -1,5 +1,6 @@
 :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #080e18; color: #e9eef8; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; }
 a { color: #73cdff; text-underline-offset: 4px; }
 a:hover { color: #c6eeff; }
@@ -23,6 +24,9 @@ p { line-height: 1.7; color: #b8c7db; }
 .button { display: inline-block; padding: 14px 18px; background: #7ad2ff; color: #071525; text-decoration: none; border-radius: 8px; font-weight: 650; }
 .button:hover { background: #b2e5ff; color: #071525; }
 figure { margin: 0; }
+.portal-atom { width: 100%; aspect-ratio: 1; }
+.portal-atom canvas { display: block; width: 100%; height: auto; border-radius: 50%; }
+#portal-rotation { display: block; margin: 12px auto; color: #b2dcf7; background: #111c2d; border: 1px solid #304057; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
 figure img { display: block; width: 100%; height: auto; border-radius: 50%; background: #000; }
 figcaption { font-size: 12px; text-align: center; color: #93a6bf; line-height: 1.5; margin: 16px 20px; }
 .paths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }

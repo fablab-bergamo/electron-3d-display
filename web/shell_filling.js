@@ -1,15 +1,19 @@
+async function initLesson() {
+    await ShellFillingBackend.load();
+    document.getElementById("lesson-controls").disabled = false;
+    document.getElementById("loading").hidden = true;
 /* Presentation is separate from the configuration model for headless validation. */
 const {elements, configuration} = ShellFilling;
 const text = ShellFillingLocale;
 const byId = id => document.getElementById(id);
-const colors = ['#31baff', '#ff9638', '#a477ff', '#32efb4'];
+const colors = ['#31baff', '#ff9638', '#a477ff', '#32efb4', '#ff65b8', '#ffd64d', '#5de7ff'];
 const atomView = ShellFillingAtom.createAtomView(byId('atom'), colors);
 const requestedElement = Number(new URLSearchParams(location.search).get('z'));
 let target = Number.isInteger(requestedElement) && requestedElement >= 1 && requestedElement <= elements.length ? requestedElement : 8;
 let count = 0;
 let timer = null;
 
-elements.forEach(([symbol, name], index) => {
+elements.forEach(([symbol], index) => {
     const option = document.createElement('option');
     option.value = index + 1;
     option.textContent = `${symbol} · ${text.name(index)} (${index + 1})`;
@@ -25,11 +29,12 @@ function pause() {
 
 function render(animate = false) {
     atomView.update(count, target, animate);
-    const state = configuration(count);
-    const previous = configuration(Math.max(0, count - 1));
+    const state = configuration(count, target);
+    const previous = configuration(Math.max(0, count - 1), target);
     byId('orbitals').replaceChildren();
     let active = null;
     state.forEach((subshell, rowIndex) => {
+        if (!subshell.finalOccupancy) return;
         const row = document.createElement('div');
         row.className = 'row';
         row.style.setProperty('--shell', colors[subshell.n - 1]);
@@ -63,7 +68,7 @@ function render(animate = false) {
         segment.append(superscript, ' ');
         byId('configuration').append(segment);
     });
-    for (let n = 1; n <= 4; ++n) {
+    for (let n = 1; n <= 7; ++n) {
         const total = state.filter(s => s.n === n).reduce((sum, s) => sum + s.occupancy, 0);
         let shell = byId('shells').children[n - 1];
         if (!shell) {
@@ -79,11 +84,11 @@ function render(animate = false) {
             shell.append(label, track);
             byId('shells').append(shell);
         }
-        shell.children[0].textContent = `${'KLMN'[n - 1]} · n = ${n}: ${total} / ${2 * n * n}`;
+        shell.children[0].textContent = `${'KLMNOPQ'[n - 1]} · n = ${n}: ${total} / ${2 * n * n}`;
         const fill = shell.children[1].children[0];
         fill.style.width = `${100 * total / (2 * n * n)}%`;
     }
-    const [symbol, name] = elements[target - 1];
+    const [symbol] = elements[target - 1];
     const languageLink = document.querySelector('nav a[hreflang]');
     if (languageLink) {
         const languageUrl = new URL(languageLink.href);
@@ -99,6 +104,13 @@ function render(animate = false) {
         explanation = `${text.entry(count, active.subshell.label)} ${rule}`;
         if (count === target) explanation += ` ${text.complete(symbol)}`;
     }
+    let naiveRemaining = target;
+    const differs = state.map(s => {
+        const expected = Math.min(naiveRemaining, 2 * s.orbitals);
+        naiveRemaining -= expected;
+        return expected !== s.finalOccupancy;
+    }).some(Boolean);
+    byId('configuration-note').textContent = [differs ? text.exception : '', target > 103 ? text.prediction : ''].filter(Boolean).join(' ');
     byId('explanation').textContent = explanation;
     byId('back').disabled = count === 0;
     byId('next').disabled = count === target;
@@ -131,3 +143,13 @@ byId('density').oninput = event => {
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 render();
+
+}
+initLesson().catch(error => {
+    const italian = document.documentElement.lang === "it";
+    document.getElementById("loading").textContent = (italian ? "Impossibile caricare il modello. Controlla la connessione e riprova." : "Could not load the model. Check your connection and retry.");
+    const retry = document.getElementById("retry");
+    retry.hidden = false;
+    retry.onclick = () => location.reload();
+    console.error(error);
+});

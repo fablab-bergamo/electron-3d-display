@@ -23,6 +23,7 @@ on:
       - 'robots.txt'
       - 'tools/education_pages_gen.py'
       - 'tools/assemble_web_site.py'
+      - 'tools/portal_atom_gen.py'
       - 'micropython/**'
       - 'pc/**'
       - 'docs/**'
@@ -50,7 +51,9 @@ jobs:
       - name: Validate educational pages
         run: |
           python3 tools/education_pages_gen.py --check
+          python3 tools/portal_atom_gen.py --check
           node web/shell_filling_model.test.js
+          node --check web/portal_atom.js
 
       - name: Assemble site
         run: python3 tools/assemble_web_site.py _site

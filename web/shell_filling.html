@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Electron configuration animation: shell filling & orbital diagrams | Atom Cube</title>
-<meta name="description" content="Learn electron configurations with an interactive shell-filling animation. Build atoms from hydrogen to calcium and explore Aufbau, Hund’s rule and Pauli spin pairing.">
+<meta name="description" content="Learn electron configurations with an interactive shell-filling animation. Build atoms across all 118 elements and explore Aufbau, Hund’s rule and Pauli spin pairing.">
 <link rel="canonical" href="https://fablab-bergamo.github.io/electron-3d-display/web/shell_filling.html">
 <link rel="alternate" hreflang="en" href="https://fablab-bergamo.github.io/electron-3d-display/web/shell_filling.html">
 <link rel="alternate" hreflang="it" href="https://fablab-bergamo.github.io/electron-3d-display/web/shell_filling_it.html">
@@ -33,9 +33,9 @@
     .panels { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; }
     section { background: #111c2c; border: 1px solid #2c3c53; border-radius: 16px; padding: 20px; }
     h2 { font-size: 20px; margin-top: 0; }
-    .row { display: flex; align-items: center; gap: 14px; margin: 12px 0; }
+    .row { display: flex; align-items: center; gap: 6px; margin: 10px 0; }
     .label { min-width: 30px; color: var(--shell); font-weight: bold; }
-    .box { display: inline-flex; width: 56px; height: 44px; border: 1px solid #61738b; border-radius: 5px; align-items: center; justify-content: center; font-size: 28px; }
+    .box { display: inline-flex; flex: 0 0 clamp(24px, 4vw, 40px); min-width: 0; height: 40px; border: 1px solid #61738b; border-radius: 5px; align-items: center; justify-content: center; font-size: clamp(14px, 2.8vw, 24px); }
     .box.active { border-color: #ffd080; background: #433724; }
     .new { color: #ffd080; animation: arrive .6s ease-out; display: inline-block; }
     @keyframes arrive { from { opacity: 0; transform: translateY(-22px); } to { opacity: 1; transform: translateY(0); } }
@@ -49,6 +49,11 @@
     .atom-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 16px 0; }
     .atom-controls input[type=range] { width: 130px; vertical-align: middle; }
     .totals { grid-column: 1 / -1; }
+    fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+    .panels { align-items: start; }
+    .panels > section { min-width: 0; }
+    .atom-panel { position: sticky; top: 20px; }
+    @media (max-width: 650px) { .atom-panel { position: static; } }
     @media (max-width: 650px) { .panels { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .new { animation: none; } .fill { transition: none; } }
 </style>
@@ -57,7 +62,10 @@
 <main>
     <nav aria-label="Main navigation"><a href="../index.html">← Explore the atom</a> · <a href="index.html">3D orbital viewer</a> · <a href="shell_filling_it.html" lang="it" hreflang="it">Italiano</a></nav>
     <h1>Electron configuration: watch an atom fill</h1>
-    <p class="muted">One electron at a time, from hydrogen to calcium. Watch subshells fill, then see how their electrons add up to shells.</p>
+    <p class="muted">One electron at a time, across all 118 elements. Watch subshells fill, then see how their electrons add up to shells.</p>
+    <p id="loading" role="status">Loading the shared physics model…</p>
+    <button id="retry" hidden>Retry</button>
+    <fieldset id="lesson-controls" disabled>
     <div class="controls">
         <label>Target atom <select id="element"></select></label>
         <button id="play">Play</button>
@@ -68,9 +76,11 @@
     </div>
     <label for="progress" id="progress-label">Electrons placed: 0</label>
     <input id="progress" type="range" min="0" max="8" value="0">
+    </fieldset>
     <p id="explanation" role="status" aria-live="polite"></p>
+    <p id="configuration-note" class="muted"></p>
     <div class="panels">
-        <section>
+        <section class="atom-panel">
             <h2>Watch the atom fill</h2>
             <canvas id="atom" width="480" height="480" role="img" aria-label="Atom filling visualization">Shell-colored schematic electron probability clouds. The shell totals below give the electron counts.</canvas>
             <div class="atom-controls">
@@ -78,7 +88,7 @@
                 <label>Points <input id="density" type="range" min="10" max="100" value="40" step="5"> <output id="density-value" for="density">40%</output></label>
             </div>
             <p class="muted">Watch the atom build electron by electron, in sync with the orbital boxes.</p>
-            <p class="muted">Schematic s spheres and p lobes at a fixed scale. Dots represent probability density, not individual electrons; radii and radial nodes are simplified.</p>
+            <p class="muted">Schematic s, p, d and f probability clouds at a fixed scale. Dots represent probability density, not individual electrons; radii and radial nodes are simplified.</p>
         </section>
         <section aria-label="Orbital filling diagram">
             <h2>Subshells & orbital boxes</h2>
@@ -95,10 +105,10 @@
     </div>
     <section class="rules">
         <h2>Three rules to watch</h2>
-        <p><strong>Aufbau:</strong> for these neutral ground states, follow 1s → 2s → 2p → 3s → 3p → 4s.<br>
-        <strong>Hund:</strong> in a p subshell, occupy all three equal-energy orbitals with parallel spins before pairing.<br>
+        <p><strong>Aufbau:</strong> use the usual subshell order as a starting point: 1s → 2s → 2p → 3s → 3p → 4s → 3d → 4p. Some elements have different ground-state occupancies.<br>
+        <strong>Hund:</strong> within a subshell, occupy the equal-energy orbitals singly with parallel spins before pairing.<br>
         <strong>Pauli:</strong> an orbital holds at most two electrons, with opposite spins.</p>
-        <p class="muted">This is a construction diagram for a selected neutral atom, not a simulation of adding electrons to an ion over time. Arrows show spin states, not electron trajectories. Box spacing does not represent measured energies. Beyond calcium, ground-state exceptions require additional treatment.</p>
+        <p class="muted">This builds the selected neutral atom’s final configuration one contribution at a time; intermediate steps do not represent the ground states of ions or other elements. Arrows show spin states, and box spacing does not represent measured energies.</p>
         <a href="https://openstax.org/books/chemistry-atoms-first-2e/pages/3-4-electronic-structure-of-atoms-electron-configurations">Reference: OpenStax · Electronic structure of atoms</a>
         <h2>Try these electron configurations</h2>
         <p><a href="?z=7">Nitrogen: 1s² 2s² 2p³</a> shows three singly occupied p orbitals.
@@ -109,6 +119,8 @@
 <script src="shell_filling_model.js"></script>
 <script src="shell_filling_locale.js"></script>
 <script src="shell_filling_atom.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v314.0.4/full/pyodide.js"></script>
+<script src="shell_filling_backend.js"></script>
 <script src="shell_filling.js"></script>
 </body>
 </html>
