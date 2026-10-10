@@ -9,7 +9,7 @@
 // Build in float precision (matches the eventual ESP32 build; used to
 // quantify precision loss, not as the correctness gate):
 //   g++ -std=c++17 -O2 gen_c_reference.cpp ../../src/orbitals.cpp -I ../../src -o out/gen_c_f32
-#include "orbitals.h"
+#include "physics/orbitals.h"
 
 #include <cstdio>
 #include <cstdlib>

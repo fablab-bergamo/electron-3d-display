@@ -140,15 +140,17 @@ def _build_inverse_cdf(weight, domain_max):
     non-decreasing, and the target quantile is non-decreasing in k), so this
     is O(len(weight)) total -- no per-point search survives into sampling
     either, since the result is later read directly via
-    get_value_from_lookup_table().
+    get_value_from_lookup_table(). The CDF integrates grid intervals by the
+    trapezoid rule, starting at zero rather than counting the first endpoint
+    as probability mass.
     """
     count = len(weight)
     delta = domain_max / (count - 1)
 
     cdf = array.array('d', bytes(8 * count))
     cumulative = 0.0
-    for i in range(count):
-        cumulative += weight[i]
+    for i in range(1, count):
+        cumulative += 0.5 * (weight[i - 1] + weight[i]) * delta
         cdf[i] = cumulative
     total = cdf[count - 1]
     if total <= 0.0:
@@ -172,7 +174,7 @@ def _build_inverse_cdf(weight, domain_max):
 
 
 @micropython.native
-def _build_inverse_cdf_from_grid(weight, x_grid):
+def _build_inverse_cdf_from_grid(weight, x_grid, out_count=None):
     """Same inverse-CDF builder as _build_inverse_cdf(), but for samples of a
     density on an ARBITRARY (not evenly spaced) grid x_grid[0..count-1] --
     the case for the tabulated screened-potential radial functions (u^2 on a
@@ -180,10 +182,14 @@ def _build_inverse_cdf_from_grid(weight, x_grid):
     trapezoid rule on the actual spacing, and the inverse lookup maps the
     quantile back to an x value (not an index) by linear interpolation of
     the CDF -- still one monotonic sweep each way, so still O(count) total.
+    out_count sets inverse-table resolution independently of the source
+    grid (defaults to count); source-grid spacing still controls integration.
     """
     count = len(weight)
+    if out_count is None:
+        out_count = count
     if count < 2:
-        return array.array('d', bytes(8 * count))
+        return array.array('d', bytes(8 * out_count))
 
     cdf = array.array('d', bytes(8 * count))
     cumulative = 0.0
@@ -197,10 +203,10 @@ def _build_inverse_cdf_from_grid(weight, x_grid):
     for i in range(count):
         cdf[i] /= total
 
-    inv_table = array.array('d', bytes(8 * count))
+    inv_table = array.array('d', bytes(8 * out_count))
     j = 0
-    for k in range(count):
-        u = k / (count - 1)
+    for k in range(out_count):
+        u = k / (out_count - 1)
         while j < count - 1 and cdf[j] < u:
             j += 1
         j0 = j - 1 if j > 0 else 0
@@ -213,7 +219,7 @@ def _build_inverse_cdf_from_grid(weight, x_grid):
 
 
 @micropython.native
-def init_orbital_sampler(n, ell, m, z_eff=1.0, radial_fn=None, max_r=None):
+def init_orbital_sampler(n, ell, m, z_eff=1.0, radial_fn=None, max_r=None, radial_table=None):
     """Precompute an OrbitalSampler for (n, ell, m): builds the three
     inverse-CDF tables above from orbitals.hydrogen_radial_function()'s
     r*R(r), orbitals.compute_plm()'s P_l^m(theta), and the azimuthal factor
@@ -235,6 +241,9 @@ def init_orbital_sampler(n, ell, m, z_eff=1.0, radial_fn=None, max_r=None):
             model -- when given, it REPLACES the hydrogenic radial function
             entirely (z_eff is then ignored) and max_r must be given too.
             The angular tables are identical either way.
+        radial_table: optional (inverse radial CDF, max_r) built directly
+            from a source grid. Reused for all occupied real orbitals in
+            the subshell, so its radial distribution is independent of m.
 
     Returns:
         An OrbitalSampler ready for sample_orbital_point().
@@ -246,20 +255,23 @@ def init_orbital_sampler(n, ell, m, z_eff=1.0, radial_fn=None, max_r=None):
     sin = _sin
     cos = _cos
 
-    if radial_fn is None:
+    if radial_fn is None and radial_table is None:
         max_r = 6 * n * n / z_eff
     table_size = orbitals.TABLE_SIZE
 
-    delta_r = max_r / (table_size - 1)
-    r_weight = array.array('d', bytes(8 * table_size))
-    for i in range(table_size):
-        r = i * delta_r
-        if radial_fn is None:
-            radial = radial_fn_hydro(z_eff * r, n, ell, radial_coeff)
-        else:
-            radial = radial_fn(r)
-        r_weight[i] = (r * radial) * (r * radial)
-    inv_r_table = _build_inverse_cdf(r_weight, max_r)
+    if radial_table is not None:
+        inv_r_table, max_r = radial_table
+    else:
+        delta_r = max_r / (table_size - 1)
+        r_weight = array.array('d', bytes(8 * table_size))
+        for i in range(table_size):
+            r = i * delta_r
+            if radial_fn is None:
+                radial = radial_fn_hydro(z_eff * r, n, ell, radial_coeff)
+            else:
+                radial = radial_fn(r)
+            r_weight[i] = (r * radial) * (r * radial)
+        inv_r_table = _build_inverse_cdf(r_weight, max_r)
 
     delta_theta = _pi / (table_size - 1)
     theta_weight = array.array('d', bytes(8 * table_size))
@@ -361,10 +373,12 @@ def init_radial_sampler_from_table(x_grid, density):
     from ~1e-6 to ~100 a0), `density[i]` = (x_grid[i] * R(x_grid[i]))^2 --
     same meaning as init_radial_sampler()'s r_weight, just not hydrogenic.
     The generalized inverse-CDF builder handles the non-uniform grid.
+    Its output has orbitals.TABLE_SIZE quantiles, matching the device and
+    hydrogenic samplers independently of the source grid's resolution.
 
     Returns (inv_r_table, max_r) as init_radial_sampler().
     """
-    inv_r_table = _build_inverse_cdf_from_grid(density, x_grid)
+    inv_r_table = _build_inverse_cdf_from_grid(density, x_grid, orbitals.TABLE_SIZE)
     return inv_r_table, x_grid[len(x_grid) - 1]
 
 

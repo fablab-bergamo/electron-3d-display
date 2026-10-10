@@ -98,6 +98,7 @@ ElectronConfig buildAtomPointCloud(int z, AtomPoint *out, int count, uint32_t se
     XorShift32 rng(seed);
     int idx = 0;
     int rangeCount = 0;
+    bool useHfs = true;
     for (int g = 0; g < groupCount; g++)
     {
         int n = groups[g].n, ell = groups[g].ell, m = groups[g].m;
@@ -108,7 +109,19 @@ ElectronConfig buildAtomPointCloud(int z, AtomPoint *out, int count, uint32_t se
         // buildRadialSamplerRuntime() path below is the fallback both for a z outside the
         // tables' NIST-verified 92/92 coverage AND for a board that hasn't run
         // `pio run -t uploadfs` yet (hfsFindU() returns nullptr in both cases).
-        const orb_real_t *u = hfsFindU(z, n, ell);
+        const orb_real_t *u = useHfs ? hfsFindU(z, n, ell) : nullptr;
+        if (useHfs && u == nullptr)
+        {
+            // A missing or unreadable row changes the model for the WHOLE atom.
+            // Restart deterministically rather than mixing HFS and hydrogenic radii
+            // under one calibration factor. At most one restart per element load.
+            useHfs = false;
+            rng = XorShift32(seed);
+            idx = 0;
+            rangeCount = 0;
+            g = -1;
+            continue;
+        }
         const RadialTable &radial = u != nullptr
                                         ? (m == kIsotropicM ? buildHfsRadialSamplerIsotropic(u)
                                                              : buildHfsRadialSamplerOriented(u))
@@ -152,13 +165,12 @@ ElectronConfig buildAtomPointCloud(int z, AtomPoint *out, int count, uint32_t se
     // sizes. The device zoom-to-fits via kAtomTargetPx/rRef (scaleForAtom),
     // so on-device this mainly makes the pm scale bar, the dissection zoom
     // depths and the bounding circle (drawn at the outer subshell's peakR,
-    // scaled below with the points) CR-consistent. kAtomSizeCalibFactor is table-based here
-    // (CR / HFS-table valence mode, tools/atom_size_calib_gen.py's
-    // compute_table_factors() -- see pc/RUN_HFS.md's device note), matching
+    // scaled below with the points) CR-consistent. Choose the generated factor for the
+    // model used for the whole cloud (HFS tables or hydrogenic fallback), matching
     // the radial model actually rendered above; the internal shell
     // structure past the valence subshell stays the LDA tables' own (see
     // pc/RUN_HFS.md section 5's LDA/relativistic-offset caveats).
-    orb_real_t calib = kAtomSizeCalibFactor[z - 1];
+    orb_real_t calib = useHfs ? kAtomSizeCalibFactor[z - 1] : kAtomHydrogenicSizeCalibFactor[z - 1];
     if (calib != orb_real_t(1))
     {
         for (int i = 0; i < idx; i++)

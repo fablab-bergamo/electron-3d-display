@@ -152,18 +152,7 @@ const RadialTable &buildHfsRadialSamplerIsotropic(const orb_real_t *u)
 
 const RadialTable &buildHfsRadialSamplerOriented(const orb_real_t *u)
 {
-    static RadialTable rt;
-    static orb_real_t weight[kOrbitalTableSize];
-    orb_real_t maxR = sR[kHfsGridSize - 1];
-    rt.maxR = maxR;
-    rt.peakR = hfsPeakR(u);
-    orb_real_t deltaR = maxR / orb_real_t(kOrbitalTableSize - 1);
-    for (int i = 0; i < kOrbitalTableSize; i++)
-    {
-        orb_real_t r = orb_real_t(i) * deltaR;
-        orb_real_t R = hfsRLookup(r, u);
-        weight[i] = (r * R) * (r * R);
-    }
-    buildInverseCdf(weight, kOrbitalTableSize, maxR, rt.invRTable);
-    return rt;
+    // Occupancy changes only the angular distribution. Sampling contracted f shells
+    // on a uniform 0..100-bohr grid loses the resolution of the source log grid.
+    return buildHfsRadialSamplerIsotropic(u);
 }

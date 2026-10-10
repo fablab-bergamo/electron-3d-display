@@ -9,7 +9,7 @@
 //   g++ -std=c++17 -O2 -DORBITAL_USE_DOUBLE gen_points_c.cpp ../../src/orbitals.cpp ../../src/pointcloud.cpp -I ../../src -o out/gen_points_c_f64
 // Build in float precision (matches the eventual ESP32 build):
 //   g++ -std=c++17 -O2 gen_points_c.cpp ../../src/orbitals.cpp ../../src/pointcloud.cpp -I ../../src -o out/gen_points_c_f32
-#include "pointcloud.h"
+#include "physics/pointcloud.h"
 
 #include <cstdio>
 #include <cstdlib>

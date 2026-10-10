@@ -98,11 +98,17 @@ constexpr void buildInverseCdf(orb_real_t *weight, int count, orb_real_t domainM
 {
     orb_real_t delta = domainMax / orb_real_t(count - 1);
 
+    // Integrate intervals, not point masses: the CDF starts at zero. Counting the
+    // first endpoint as mass shifts every quantile inward, even for a uniform density.
+    orb_real_t prevWeight = weight[0];
+    weight[0] = orb_real_t(0);
     orb_real_t cumulative = orb_real_t(0);
-    for (int i = 0; i < count; i++)
+    for (int i = 1; i < count; i++)
     {
-        cumulative += weight[i];
+        orb_real_t curWeight = weight[i];
+        cumulative += orb_real_t(0.5) * (prevWeight + curWeight) * delta;
         weight[i] = cumulative; // weight[] now holds the (unnormalized) CDF
+        prevWeight = curWeight;
     }
     orb_real_t total = weight[count - 1];
     if (total <= orb_real_t(0))

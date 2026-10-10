@@ -493,8 +493,14 @@ def build_atom_point_cloud(z, count=N_POINTS, seed=SEED, radial_tables=None):
                 legendre_coeff = orbitals.legendre_coeffs(ell, m)
                 if radial_tables is not None:
                     src = radial_tables.source(z, n, ell)
-                    sampler = pointcloud.init_orbital_sampler(n, ell, m, radial_fn=src.R_lookup,
-                                                              max_r=src.max_r())
+                    radial_key = (source_kind, z, n, ell)
+                    inv_r_table = _RADIAL_TABLE_CACHE.get(radial_key)
+                    if inv_r_table is None:
+                        density = array.array('d', (u * u for u in src.u))
+                        inv_r_table, _max_r = pointcloud.init_radial_sampler_from_table(src.r, density)
+                        _RADIAL_TABLE_CACHE[radial_key] = inv_r_table
+                    sampler = pointcloud.init_orbital_sampler(
+                        n, ell, m, radial_table=(inv_r_table, src.max_r()))
                     cached = (sampler, radial_coeff, legendre_coeff, src.r, src.u, None)
                 else:
                     z_eff = slater.z_eff_radial(z, config, n, ell)

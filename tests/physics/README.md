@@ -22,5 +22,17 @@ doubling the 1s radius -- still fails.
 | `test_generated_in_sync.py` | `data/` + `micropython/` binaries, `src/physics/hfs_tables.h`, `atom_size_calib.h` regenerate identically from the npz; calibrated valence peak = Clementi-Raimondi radius. |
 | `test_device_physics.py` | `src/physics/{atom_cloud,hfs_radial,pointcloud}.cpp` built for the host (stubs in `host/stubs/`, `data/hfs_tables.bin` via `$HFS_TABLES_BIN`): the device's bounding circle is the Clementi-Raimondi radius for all 92 elements, on the valence subshell. |
 
+The device tests also check Tm 4f quantiles and sampled median, missing-asset
+calibration for all 92 elements, and a truncated asset whose late read failure
+must restart the entire atom in the hydrogenic model. Open and closed HFS
+subshells share a radial sampler on the source log grid; only their angular
+distributions differ. `test_sampling.py` checks uniform densities and the
+Tm 4f radial marginal against dense independent integration.
+
+Regenerate `data/orbital_samplers.bin` with `tools/orbital_table_gen.py` when
+changing the uniform-grid CDF construction. The generated size header carries
+separate HFS and hydrogenic calibration factors; regenerate it with
+`tools/atom_size_calib_gen.py`.
+
 When a check fails after an intentional model change, fix the data or code
 first; widen a tolerance only with the physical reason written next to it.
