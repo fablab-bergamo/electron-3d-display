@@ -1,8 +1,8 @@
-/* Illustrative s/p/d/f probability clouds at a fixed teaching scale. These are
- * schematic shapes, not the calibrated radial densities of the main viewer. */
+/* Sample |R(r)Y(l,m)|² at physical radii; angular and radial draws factorize. */
 (function (root) {
     const model = root.ShellFilling || (typeof require === 'function' ? require('./shell_filling_model.js') : null);
-    const pointsPerElectron = 120;
+    const radial = root.ShellFillingRadial || (typeof require === 'function' ? require('./shell_filling_radial.js') : null);
+    const pointsPerElectron = 320;
     // Squared real spherical harmonic, divided by the addition-theorem bound
     // (2l+1)/(4pi). This keeps rejection probabilities <= 1 for every m.
     function angularWeight(ell, m, z, phi) {
@@ -24,15 +24,17 @@
         return ratio * p * p * (order ? 2 * azimuth * azimuth : 1);
     }
 
-    function electronClouds() {
+    function electronClouds(target = 8) {
         let seed = 721;
         const random = () => {
             seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
             return (seed + 0.5) / 4294967296;
         };
         const clouds = [];
-        for (const subshell of model.subshells) {
-            for (let electron = 0; electron < subshell.orbitals * 2; ++electron) {
+        for (const subshell of model.configuration(target, target)) {
+            if (!subshell.finalOccupancy) continue;
+            const distribution = radial.source(target, subshell.n, subshell.ell);
+            for (let electron = 0; electron < subshell.finalOccupancy; ++electron) {
                 const axis = electron % subshell.orbitals;
                 const points = [];
                 while (points.length < pointsPerElectron) {
@@ -41,7 +43,7 @@
                     const transverse = Math.sqrt(1 - z * z);
                     const direction = [transverse * Math.cos(phi), transverse * Math.sin(phi), z];
                     if (random() > angularWeight(subshell.ell, axis - subshell.ell, z, phi)) continue;
-                    const radius = subshell.n * (0.32 + 0.68 * Math.cbrt(random()));
+                    const radius = distribution.quantile(random());
                     points.push(direction.map(component => component * radius));
                 }
                 clouds.push({n: subshell.n, label: subshell.label, axis, electron, points});
@@ -52,8 +54,8 @@
 
     function createAtomView(canvas, colors) {
         const ctx = canvas.getContext('2d');
-        const clouds = electronClouds();
-        const grouped = new Map(model.subshells.map(s => [s.label, clouds.filter(c => c.label === s.label)]));
+        let grouped = new Map();
+        let cloudTarget = null;
         const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
         let count = 0;
         let target = 8;
@@ -66,7 +68,9 @@
         let frame = null;
         let lastTime = null;
         let activeClouds = [];
-        let outerShell = 2;
+        let frameRadius = 1;
+        let selected = null;
+        let isolate = false;
         // Cache glow sprites once, rather than creating gradients per point.
         const sprites = [...colors, '#ffe5a3'].map(color => {
             const sprite = document.createElement('canvas');
@@ -96,7 +100,7 @@
             const progress = added && !reducedMotion.matches ? Math.min(1, (now - start) / 450) : 1;
             const size = canvas.width;
             const center = size / 2;
-            const scale = size * 0.37 / outerShell;
+            const scale = size * 0.40 / frameRadius;
             ctx.globalCompositeOperation = 'source-over';
             const background = ctx.createRadialGradient(center, center, 0, center, center, center);
             background.addColorStop(0, '#101e35');
@@ -112,9 +116,9 @@
             ctx.globalCompositeOperation = 'lighter';
             for (let index = 0; index < count; ++index) {
                 const cloud = activeClouds[index];
+                if (isolate && cloud.label !== selected) continue;
                 const arriving = added && index === count - 1 && progress < 1;
                 const gain = arriving ? progress : 1;
-                const expansion = arriving ? 1 + 0.3 * (1 - progress) : 1;
                 for (let pointIndex = 0; pointIndex < cloud.points.length; ++pointIndex) {
                     const id = index * pointsPerElectron + pointIndex;
                     const oldWeight = retained(id, Math.max(0, epoch - 1)) ? 1 : 0;
@@ -126,27 +130,33 @@
                     const rz = z * cosine - x * sine;
                     const ry = y * Math.cos(tilt) - rz * Math.sin(tilt);
                     const depth = y * Math.sin(tilt) + rz * Math.cos(tilt);
-                    const near = Math.max(0, Math.min(1, (depth / outerShell + 1) / 2));
-                    const diameter = 5 + 3 * near;
+                    const near = Math.max(0, Math.min(1, (depth / frameRadius + 1) / 2));
+                    const diameter = 2.5 + 1.5 * near;
                     ctx.globalAlpha = visibility * gain * (0.5 + 0.45 * near);
                     ctx.drawImage(sprites[arriving ? colors.length : cloud.n - 1],
-                        center + rx * scale * expansion - diameter / 2,
-                        center + ry * scale * expansion - diameter / 2, diameter, diameter);
+                        center + rx * scale - diameter / 2,
+                        center + ry * scale - diameter / 2, diameter, diameter);
                 }
             }
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = 'source-over';
-            const glow = ctx.createRadialGradient(center, center, 0, center, center, 15);
+            const glow = ctx.createRadialGradient(center, center, 0, center, center, 5);
             glow.addColorStop(0, '#fff4d8');
             glow.addColorStop(0.3, '#ffba72');
             glow.addColorStop(1, '#ffba7200');
             ctx.fillStyle = glow;
-            ctx.fillRect(center - 15, center - 15, 30, 30);
+            ctx.fillRect(center - 5, center - 5, 10, 10);
             ctx.font = '16px system-ui';
             ctx.fillStyle = '#e9eef8';
             ctx.fillText(`${root.ShellFilling.elements[target - 1][0]} · ${count} / ${target} ${ShellFillingLocale.electrons}`, 18, 28);
             ctx.fillStyle = '#aebbd0';
-            ctx.fillText(count ? ShellFillingLocale.latest(activeClouds[count - 1].label) : ShellFillingLocale.nucleus, 18, size - 18);
+            ctx.fillText(count ? (isolate ? ShellFillingLocale.inspected(selected) : ShellFillingLocale.latest(activeClouds[count - 1].label)) : ShellFillingLocale.nucleus, 18, size - 18);
+            const barWidth = size * 0.18;
+            ctx.fillStyle = '#e9eef8';
+            ctx.fillRect(size - barWidth - 18, size - 43, barWidth, 2);
+            ctx.textAlign = 'right';
+            ctx.fillText(`${(barWidth / scale * 52.9177210903).toFixed(1)} pm`, size - 18, size - 18);
+            ctx.textAlign = 'left';
             if ((count > 0 || progress < 1) && !reducedMotion.matches && !document.hidden) {
                 frame = requestAnimationFrame(draw);
             }
@@ -171,14 +181,20 @@
                 count = nextCount;
                 target = nextTarget;
                 const state = model.configuration(count, target);
+                if (cloudTarget !== target) {
+                    const clouds = electronClouds(target);
+                    grouped = new Map(model.subshells.map(s => [s.label, clouds.filter(c => c.label === s.label)]));
+                    frameRadius = Math.max(...state.filter(s => s.finalOccupancy).map(s => radial.source(target, s.n, s.ell).quantile(0.995)));
+                    cloudTarget = target;
+                }
                 activeClouds = state.flatMap(s => grouped.get(s.label).slice(0, s.occupancy));
-                outerShell = Math.max(...state.filter(s => s.finalOccupancy).map(s => s.n));
                 start = performance.now();
                 canvas.setAttribute('aria-label', ShellFillingLocale.atomLabel(target, count));
                 refresh();
             },
             setRotation(enabled) { rotating = enabled; refresh(); },
             setDensity(percent) { density = Math.max(0.1, Math.min(1, percent / 100)); refresh(); },
+            inspect(label, enabled) { selected = label; isolate = enabled; refresh(); },
         };
     }
 

@@ -46,14 +46,13 @@
     #explanation { min-height: 76px; }
     .rules { margin-top: 20px; }
     #atom { display: block; width: 100%; aspect-ratio: 1; border-radius: 12px; }
+    #radial-chart { display: block; width: 100%; height: auto; }
     .atom-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 16px 0; }
     .atom-controls input[type=range] { width: 130px; vertical-align: middle; }
     .totals { grid-column: 1 / -1; }
     fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
     .panels { align-items: start; }
     .panels > section { min-width: 0; }
-    .atom-panel { position: sticky; top: 20px; }
-    @media (max-width: 650px) { .atom-panel { position: static; } }
     @media (max-width: 650px) { .panels { grid-template-columns: 1fr; } }
     @media (prefers-reduced-motion: reduce) { .new { animation: none; } .fill { transition: none; } }
 </style>
@@ -82,13 +81,21 @@
     <div class="panels">
         <section class="atom-panel">
             <h2>Watch the atom fill</h2>
-            <canvas id="atom" width="480" height="480" role="img" aria-label="Atom filling visualization">Shell-colored schematic electron probability clouds. The shell totals below give the electron counts.</canvas>
+            <canvas id="atom" width="480" height="480" role="img" aria-label="Atom filling visualization">Calculated electron probability clouds, colored by shell. The shell totals below give the electron counts.</canvas>
             <div class="atom-controls">
                 <label><input id="rotation" type="checkbox" checked> Rotate atom</label>
                 <label>Points <input id="density" type="range" min="10" max="100" value="40" step="5"> <output id="density-value" for="density">40%</output></label>
             </div>
             <p class="muted">Watch the atom build electron by electron, in sync with the orbital boxes.</p>
-            <p class="muted">Schematic s, p, d and f probability clouds at a fixed scale. Dots represent probability density, not individual electrons; radii and radial nodes are simplified.</p>
+            <p class="muted">Cloud sizes and radial nodes come from orbital calculations. Dots sample probability; colors identify shells. The scale bar shows physical distances.</p>
+            <p id="radial-model" class="muted"></p>
+            <div class="atom-controls">
+                <label>Inspect subshell <select id="radial-subshell" disabled></select></label>
+                <label><input id="isolate" type="checkbox"> Show only this subshell</label>
+            </div>
+            <canvas id="radial-chart" width="480" height="180" role="img" aria-label="Radial probability distribution">Probability of finding an electron at each distance from the nucleus.</canvas>
+            <p id="radial-nodes" class="muted"></p>
+            <p class="muted">A radial node is a distance where this orbital has zero probability. Other orbitals can fill the gap in the combined cloud. Orbitals belong to the final neutral atom and stay fixed during this filling lesson.</p>
         </section>
         <section aria-label="Orbital filling diagram">
             <h2>Subshells & orbital boxes</h2>
@@ -117,6 +124,7 @@
     </section>
 </main>
 <script src="shell_filling_model.js"></script>
+<script src="shell_filling_radial.js"></script>
 <script src="shell_filling_locale.js"></script>
 <script src="shell_filling_atom.js"></script>
 <script src="shell_filling_backend.js"></script>

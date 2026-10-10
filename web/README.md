@@ -26,15 +26,15 @@ The Pages workflow uses this assembler, so future HTML pages receive the link to
 Serve the repository root with `python3 -m http.server 8000`, then open
 `http://localhost:8000/web/index.html` for the atom/orbital viewer or
 `http://localhost:8000/web/shell_filling.html` for the educational filling animation.
-The filling lesson must be served over HTTP. It reads symbols, Italian names and configuration exceptions from the shared Python source on this site, without executing Python or downloading an external runtime. A 15-second timeout exposes the retry control if fetching fails.
+The filling lesson must be served over HTTP. It reads symbols, Italian names and configuration exceptions from the shared Python source and radial wavefunctions from the shared binary on this site, without executing Python or downloading an external runtime. A 15-second timeout exposes the retry control if fetching fails.
 
 The filling animation covers the shared model’s neutral configurations for all 118 elements. The heaviest configurations are model predictions. The browser reads micropython/slater.py directly, including its configuration exceptions, rather than maintaining a second exception table.
 Choose an element, play/pause, step forward/backward, or scrub the electron count.
 Orbital boxes show Hund filling and opposite-spin pairing; shell bars sum
 subshell occupancies. A synchronized, rotating atom cloud adds one contribution
-per electron, with matching shell colors. Its
-s/p/d/f clouds use real spherical-harmonic angular sampling with schematic radii, not the calibrated physics
-of the main atom viewer; dots are probability samples, not electron particles.
+per electron, with matching shell colors. Its s/p/d/f clouds combine normalized
+real spherical harmonics with calculated radial probability distributions;
+dots are probability samples, not electron particles.
 The vibrant cloud rotates independently of filling playback; use Rotate atom
 to stop rotation. Points adjusts the cloud density.
 Reduced-motion mode disables rotation, point turnover, and arrivals.
@@ -50,6 +50,33 @@ chromium and palladium finish correctly without displaying an incorrect
 intermediate state as the ground state of another neutral element. The page
 explains exceptions when present. Seven shell colors and responsive orbital
 boxes keep d/f filling readable.
+
+The filling clouds use physical distances in Bohr, with a picometre scale bar.
+Hydrogen uses the exact nonrelativistic hydrogenic radial function. For He–U,
+the browser reads the same signed u(r)=rR(r) rows in
+`micropython/hfs_tables.bin` as the device. These are the project's
+SPARC-atomSFE LDA_SVWN orbitals, on the existing 128-point radial grid
+(see `pc/RUN_HFS.md`, section 5). LDA is an approximate many-electron model;
+these tables omit relativistic corrections. The reference methodology is
+described in [NIST's atomic electronic-structure data](https://www.nist.gov/pml/atomic-reference-data-electronic-structure-calculations).
+For Z=93–118, the lesson uses hydrogenic radial functions with the same
+Slater/n* screening as `micropython/slater.py`. These have physical radial
+nodes but are a less accurate fallback, identified explicitly on the page.
+
+Sampling integrates the square of linearly interpolated signed u, preserving
+zero crossings rather than interpolating a positive density across a node.
+Roundoff sign flips beyond the 99.999999% probability radius are excluded
+from the reported node list, while the probability distribution is unchanged.
+Every radial row is normalized before sampling. One scale applies to the
+entire atom; its frame is fixed throughout filling using the largest final
+orbital's 99.5% probability radius. No per-orbital display rescaling or
+empirical atom-size factor is applied. The finite viewport may crop rare tails.
+
+Use Inspect subshell and Show only this subshell to reveal an orbital's gaps;
+other orbitals can obscure its nodes in the summed atom density. The radial
+probability chart and node positions show the selected subshell's distribution.
+The nucleus glow is an enlarged marker. Filling keeps the final neutral atom's
+orbitals fixed; it does not solve a sequence of ions or electron capture.
 Physics reference: [OpenStax, electronic structure of atoms](https://openstax.org/books/chemistry-atoms-first-2e/pages/3-4-electronic-structure-of-atoms-electron-configurations).
 
 Run the model checks with `node web/shell_filling_model.test.js`.
