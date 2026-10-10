@@ -7,7 +7,16 @@ const path = require('node:path');
 const result = spawnSync('python3', ['-c', "import sys,json;sys.path.insert(0,'micropython');import slater;print(json.dumps([slater.electron_configuration(z) for z in range(1,119)]))"], {cwd: path.resolve(__dirname, '..'), encoding: 'utf8'});
 assert.equal(result.status, 0, result.stderr);
 const references = JSON.parse(result.stdout);
-model.useReference({configuration: z => references[z - 1], symbol: z => `Z${z}`});
+globalThis.ShellFilling = model;
+const backend = require('./shell_filling_backend.js');
+const source = require('node:fs').readFileSync(path.resolve(__dirname, '../micropython/slater.py'), 'utf8');
+const shared = backend.fromSource(source);
+for (let z = 1; z <= 118; ++z) assert.deepEqual(shared.configuration(z), references[z - 1]);
+assert.equal(shared.symbol(118), 'Og');
+assert.equal(shared.nameItalian(118), 'Oganesson');
+assert.throws(() => backend.fromSource(source.replace('_CONFIG_EXCEPTIONS = {', '_CONFIG_EXCEPTIONS = {alert(1),')));
+assert.throws(() => backend.fromSource(source.replace('_ELEMENT_SYMBOLS = (', '_ELEMENT_SYMBOLS = (unknown,')));
+model.useReference(shared);
 
 for (let count = 0; count <= 20; ++count) {
     const state = configuration(count);

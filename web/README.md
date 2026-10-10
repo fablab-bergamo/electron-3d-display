@@ -26,7 +26,7 @@ The Pages workflow uses this assembler, so future HTML pages receive the link to
 Serve the repository root with `python3 -m http.server 8000`, then open
 `http://localhost:8000/web/index.html` for the atom/orbital viewer or
 `http://localhost:8000/web/shell_filling.html` for the educational filling animation.
-The filling lesson must be served over HTTP. Its first load downloads the same Pyodide runtime used by the main viewer, then imports the shared Python configuration model; internet access is needed for that runtime download.
+The filling lesson must be served over HTTP. It reads symbols, Italian names and configuration exceptions from the shared Python source on this site, without executing Python or downloading an external runtime. A 15-second timeout exposes the retry control if fetching fails.
 
 The filling animation covers the shared model’s neutral configurations for all 118 elements. The heaviest configurations are model predictions. The browser reads micropython/slater.py directly, including its configuration exceptions, rather than maintaining a second exception table.
 Choose an element, play/pause, step forward/backward, or scrub the electron count.
