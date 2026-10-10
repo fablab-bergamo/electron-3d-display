@@ -22,20 +22,20 @@ node gen_points_js.js test_cases.csv "$OUT_DIR/points_js"
 
 echo
 echo "== Building and running C++ reference (double precision) =="
-g++ -std=c++17 -O2 -Wall -Wextra -DORBITAL_USE_DOUBLE \
-    gen_c_reference.cpp "$SRC_DIR/orbitals.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_c_f64"
+g++ -std=c++23 -O2 -Wall -Wextra -DORBITAL_USE_DOUBLE \
+    gen_c_reference.cpp "$SRC_DIR/physics/orbitals.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_c_f64"
 "./$OUT_DIR/gen_c_f64" test_cases.csv "$OUT_DIR/c_f64"
-g++ -std=c++17 -O2 -Wall -Wextra -DORBITAL_USE_DOUBLE \
-    gen_points_c.cpp "$SRC_DIR/orbitals.cpp" "$SRC_DIR/pointcloud.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_points_c_f64"
+g++ -std=c++23 -O2 -Wall -Wextra -DORBITAL_USE_DOUBLE \
+    gen_points_c.cpp "$SRC_DIR/physics/orbitals.cpp" "$SRC_DIR/physics/pointcloud.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_points_c_f64"
 "./$OUT_DIR/gen_points_c_f64" test_cases.csv "$OUT_DIR/points_c_f64"
 
 echo
 echo "== Building and running C++ reference (float precision, matches ESP32 target) =="
-g++ -std=c++17 -O2 -Wall -Wextra \
-    gen_c_reference.cpp "$SRC_DIR/orbitals.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_c_f32"
+g++ -std=c++23 -O2 -Wall -Wextra \
+    gen_c_reference.cpp "$SRC_DIR/physics/orbitals.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_c_f32"
 "./$OUT_DIR/gen_c_f32" test_cases.csv "$OUT_DIR/c_f32"
-g++ -std=c++17 -O2 -Wall -Wextra \
-    gen_points_c.cpp "$SRC_DIR/orbitals.cpp" "$SRC_DIR/pointcloud.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_points_c_f32"
+g++ -std=c++23 -O2 -Wall -Wextra \
+    gen_points_c.cpp "$SRC_DIR/physics/orbitals.cpp" "$SRC_DIR/physics/pointcloud.cpp" -I "$SRC_DIR" -o "$OUT_DIR/gen_points_c_f32"
 "./$OUT_DIR/gen_points_c_f32" test_cases.csv "$OUT_DIR/points_c_f32"
 
 HAVE_MPY=0

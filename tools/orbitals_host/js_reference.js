@@ -210,9 +210,10 @@ function buildInverseCdf(weight, domainMax) {
     var delta = domainMax / (count - 1);
 
     var cdf = new Array(count);
+    cdf[0] = 0;
     var cumulative = 0;
-    for (var i = 0; i < count; i++) {
-        cumulative += weight[i];
+    for (var i = 1; i < count; i++) {
+        cumulative += 0.5 * (weight[i - 1] + weight[i]) * delta;
         cdf[i] = cumulative;
     }
     var total = cdf[count - 1];

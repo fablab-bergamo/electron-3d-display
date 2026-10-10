@@ -138,21 +138,21 @@ def table_quantile(tables, z, n, ell, p):
     return float(np.interp(p, cdf / cdf[-1], fine))
 
 
-@pytest.mark.parametrize('z', [10, 26])
+@pytest.mark.parametrize('z', [10, 26, 69])
 def test_sampled_subshell_radii_match_table(tables, z):
-    """build_atom_point_cloud() (shared by the PC, web and MicroPython
-    viewers) must sample u^2: each subshell's sampled median and p90 radii
-    match the table's. Covers both the isotropic (full subshell) and the
-    Hund's-rule oriented (Fe 3d6) samplers. An r^2 weighting error shifts
-    these by 30%+; the tolerance covers sampling noise and the 128-point
-    grid. (Means are not compared: the table sampler's last quantile bin
-    spreads a thin halo far out, inflating the mean by ~5% without moving
-    the bulk.)"""
+    """Check sampled medians and p90 against an independent dense integral.
+    Cover full subshells, Fe 3d6 and the contracted open Tm 4f13 shell.
+    Tolerances allow finite-cloud sampling noise and table interpolation.
+    """
     xs, ys, zs, _colors, shells, ells, _signs, config = atom_cloud.build_atom_point_cloud(
         z, count=30000, radial_tables=tables)
     for n, ell, _occ in config:
+        if z == 69 and (n, ell) != (4, 3):
+            continue
         radii = np.array([math.sqrt(xs[i] ** 2 + ys[i] ** 2 + zs[i] ** 2)
                           for i in range(len(shells)) if shells[i] == n and ells[i] == ell])
         for p in (0.5, 0.9):
-            assert np.quantile(radii, p) == pytest.approx(table_quantile(tables, z, n, ell, p), rel=0.06), \
+            # Tighten the well-populated 4f13 regression target.
+            tolerance = 0.03 if (z, n, ell) == (69, 4, 3) else 0.06
+            assert np.quantile(radii, p) == pytest.approx(table_quantile(tables, z, n, ell, p), rel=tolerance), \
                 "Z=%d %d%s p%d" % (z, n, 'spdf'[ell], int(100 * p))

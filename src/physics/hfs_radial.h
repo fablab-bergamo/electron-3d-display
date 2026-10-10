@@ -80,20 +80,11 @@ void hfsInit();
 [[nodiscard]] const RadialTable &buildHfsRadialSamplerIsotropic(const orb_real_t *u);
 
 /**
- * Radial sampler for a Hund's-rule (anisotropic, partially-filled subshell) group: R_lookup
- * evaluated at kOrbitalTableSize evenly-spaced r in [0, maxR], then the ordinary evenly-spaced
- * buildInverseCdf() -- port of micropython/atom_cloud.py's `radial_tables is not None` branch
- * under `else` (the Hund path), which calls
- * pointcloud.init_orbital_sampler(radial_fn=src.R_lookup, max_r=...).
+ * Radial sampler for a Hund's-rule (anisotropic, partially-filled subshell) group. Shares
+ * the isotropic builder's direct-grid inverse CDF and scratch: occupation affects angular
+ * sampling only. Avoids resampling contracted orbitals onto a uniform 0..100-bohr grid.
  *
- * Deliberately NOT the direct-grid path above -- mirrors an asymmetry already present in the
- * Python model (init_orbital_sampler()'s shared hydrogenic/tabulated signature always samples
- * evenly in r, only init_radial_sampler_from_table() samples the grid directly), not something
- * to "fix" here, just to port faithfully (see this project's CLAUDE.md on staying aligned with
- * the Python ports).
- *
- * Not reentrant, same convention as buildHfsRadialSamplerIsotropic() above (separate static
- * storage from it, since both may be needed across different groups within one
- * buildAtomPointCloud() call, just never concurrently).
+ * Not reentrant: either builder invalidates the reference returned by the other.
+ * Safe for buildAtomPointCloud(), which consumes each group before building the next.
  */
 [[nodiscard]] const RadialTable &buildHfsRadialSamplerOriented(const orb_real_t *u);

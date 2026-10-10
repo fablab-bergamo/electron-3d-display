@@ -15,9 +15,12 @@ import re
 import pytest
 
 import atom_size_calib_gen
+import atom_size_calib
 import clementi_radii
 import hfs_atom_size_calib
 import hfs_table_gen
+import orbital_table_gen
+import cloud_common
 
 from conftest import PM_PER_BOHR, ROOT, valence_subshell
 
@@ -45,11 +48,17 @@ def test_hfs_binary_blobs_in_sync(tables):
     assert read_text('src/physics/hfs_tables.h') == hfs_table_gen.emit_header(len(r), len(elements), len(subshells))
 
 
+def test_orbital_sampler_blob_in_sync():
+    blob, _table_size = orbital_table_gen.emit_binary(cloud_common.ORBITAL_PRESETS)
+    assert read_bytes('data/orbital_samplers.bin') == blob, "rerun tools/orbital_table_gen.py"
+
+
 def test_size_calibration_tables_in_sync(table_factors):
-    assert read_text('src/physics/atom_size_calib.h') == atom_size_calib_gen.emit_header(table_factors), \
+    hydro_factors = atom_size_calib_gen.compute_factors()
+    assert read_text('src/physics/atom_size_calib.h') == atom_size_calib_gen.emit_header(table_factors, hydro_factors), \
         "rerun tools/atom_size_calib_gen.py"
     header_values = [float(v) for v in re.findall(r'orb_real_t\(([0-9.]+)\)', read_text('src/physics/atom_size_calib.h'))]
-    assert header_values == pytest.approx(list(hfs_atom_size_calib.FACTOR), abs=1e-4)
+    assert header_values == pytest.approx(list(hfs_atom_size_calib.FACTOR) + list(atom_size_calib.FACTOR), abs=1e-4)
 
 
 def test_calibrated_valence_peak_equals_clementi_raimondi(tables, table_factors):
