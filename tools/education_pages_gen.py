@@ -15,13 +15,15 @@ BASE = 'https://fablab-bergamo.github.io/electron-3d-display/'
 TRANSLATIONS = {
     '<html lang="en">': '<html lang="it">',
     'Electron configuration animation: shell filling & orbital diagrams | Atom Cube': 'Configurazione elettronica: animazione di gusci e orbitali | Atom Cube',
-    'Learn electron configurations with an interactive shell-filling animation. Build atoms from hydrogen to calcium and explore Aufbau, Hund’s rule and Pauli spin pairing.': 'Impara la configurazione elettronica con un’animazione interattiva: riempi gli atomi dall’idrogeno al calcio e scopri Aufbau, Hund e il principio di Pauli.',
+    'Learn electron configurations with an interactive shell-filling animation. Build atoms across all 118 elements and explore Aufbau, Hund’s rule and Pauli spin pairing.': 'Impara la configurazione elettronica con un’animazione interattiva: riempi gli atomi di tutti i 118 elementi e scopri Aufbau, Hund e il principio di Pauli.',
     'Electron configuration animation | Atom Cube': 'Configurazione elettronica animata | Atom Cube',
     'Watch an atom fill while orbital boxes explain Aufbau, Hund and Pauli.': 'Osserva il riempimento dell’atomo mentre i diagrammi degli orbitali spiegano Aufbau, Hund e Pauli.',
     'content="en_GB"': 'content="it_IT"',
     '<nav aria-label="Main navigation"><a href="../index.html">← Explore the atom</a> · <a href="index.html">3D orbital viewer</a> · <a href="shell_filling_it.html" lang="it" hreflang="it">Italiano</a></nav>': '<nav aria-label="Navigazione principale"><a href="../it/index.html">← Esplora l’atomo</a> · <a href="index.html">Visualizzatore 3D (EN)</a> · <a href="shell_filling.html" lang="en" hreflang="en">English</a></nav>',
     'Electron configuration: watch an atom fill': 'Configurazione elettronica: guarda l’atomo riempirsi',
-    'One electron at a time, from hydrogen to calcium. Watch subshells fill, then see how their electrons add up to shells.': 'Un elettrone alla volta, dall’idrogeno al calcio. Osserva il riempimento dei sottolivelli e il totale degli elettroni in ogni guscio.',
+    'One electron at a time, across all 118 elements. Watch subshells fill, then see how their electrons add up to shells.': 'Un elettrone alla volta, per tutti i 118 elementi. Osserva il riempimento dei sottolivelli e il totale degli elettroni in ogni guscio.',
+    'Loading the shared physics model…': 'Caricamento del modello fisico condiviso…',
+    '>Retry</button>': '>Riprova</button>',
     'Target atom ': 'Atomo ',
     '>Play</button>': '>Avvia</button>',
     'aria-label="Remove one electron"': 'aria-label="Rimuovi un elettrone"',
@@ -40,7 +42,7 @@ TRANSLATIONS = {
     '> Rotate atom': '> Ruota l’atomo',
     '<label>Points ': '<label>Punti ',
     'Watch the atom build electron by electron, in sync with the orbital boxes.': 'Osserva l’atomo formarsi elettrone dopo elettrone, in sincronia con il diagramma degli orbitali.',
-    'Schematic s spheres and p lobes at a fixed scale. Dots represent probability density, not individual electrons; radii and radial nodes are simplified.': 'Sfere s e lobi p schematici a scala fissa. I punti rappresentano la densità di probabilità; raggi e nodi radiali sono semplificati.',
+    'Schematic s, p, d and f probability clouds at a fixed scale. Dots represent probability density, not individual electrons; radii and radial nodes are simplified.': 'Nuvole schematiche di probabilità s, p, d e f a scala fissa. I punti rappresentano la densità di probabilità; raggi e nodi radiali sono semplificati.',
     'aria-label="Orbital filling diagram"': 'aria-label="Diagramma di riempimento degli orbitali"',
     'Subshells & orbital boxes': 'Sottolivelli e orbitali',
     'Read top to bottom in filling order. One box = one orbital; each arrow = one electron’s spin.': 'Leggi dall’alto verso il basso nell’ordine di riempimento. Un riquadro è un orbitale; ogni freccia indica lo spin di un elettrone.',
@@ -49,10 +51,10 @@ TRANSLATIONS = {
     'The number in 2p means shell n = 2; p identifies the subshell within it.': 'Il numero in 2p indica il guscio n = 2; p identifica il sottolivello al suo interno.',
     'Bars compare occupancy with the shell capacity 2n². Calcium has 2, 8, 8, 2: 4s fills before 3d, so shell 3 is still below its capacity of 18.': 'Le barre confrontano gli elettroni presenti con la capacità del guscio, 2n². Nel calcio sono 2, 8, 8, 2: il 4s si riempie prima del 3d, quindi il terzo guscio resta sotto la capacità di 18.',
     'Three rules to watch': 'Tre regole da osservare',
-    'for these neutral ground states, follow 1s → 2s → 2p → 3s → 3p → 4s.': 'per questi stati fondamentali neutri, segui 1s → 2s → 2p → 3s → 3p → 4s.',
-    'in a p subshell, occupy all three equal-energy orbitals with parallel spins before pairing.': 'in un sottolivello p, occupa i tre orbitali di pari energia con spin paralleli prima di formare coppie.',
+    'use the usual subshell order as a starting point: 1s → 2s → 2p → 3s → 3p → 4s → 3d → 4p. Some elements have different ground-state occupancies.': 'parti dall’ordine usuale dei sottolivelli: 1s → 2s → 2p → 3s → 3p → 4s → 3d → 4p. Alcuni elementi hanno occupazioni fondamentali differenti.',
+    'within a subshell, occupy the equal-energy orbitals singly with parallel spins before pairing.': 'nel sottolivello, occupa gli orbitali di pari energia singolarmente con spin paralleli prima di formare coppie.',
     'an orbital holds at most two electrons, with opposite spins.': 'un orbitale contiene al massimo due elettroni, con spin opposti.',
-    'This is a construction diagram for a selected neutral atom, not a simulation of adding electrons to an ion over time. Arrows show spin states, not electron trajectories. Box spacing does not represent measured energies. Beyond calcium, ground-state exceptions require additional treatment.': 'È un diagramma per costruire la configurazione dell’atomo neutro scelto. Le frecce indicano gli stati di spin; la distanza fra i riquadri non rappresenta energie misurate. Oltre il calcio occorre considerare anche le eccezioni di configurazione.',
+    'This builds the selected neutral atom’s final configuration one contribution at a time; intermediate steps do not represent the ground states of ions or other elements. Arrows show spin states, and box spacing does not represent measured energies.': 'Costruisci la configurazione finale dell’atomo neutro scelto un contributo alla volta; i passaggi intermedi non sono gli stati fondamentali di ioni o di altri elementi. Le frecce indicano gli stati di spin e la distanza fra i riquadri non rappresenta energie misurate.',
     'Reference: OpenStax · Electronic structure of atoms': 'Fonte: OpenStax · Struttura elettronica degli atomi (EN)',
     'Try these electron configurations': 'Prova queste configurazioni elettroniche',
     'Nitrogen: 1s² 2s² 2p³': 'Azoto: 1s² 2s² 2p³',
@@ -74,7 +76,7 @@ CONTENT = {
         'caption': 'Carbon: a sampled electron probability cloud from the project’s atom viewer.',
         'journey': 'Three ways to explore atomic structure',
         'filltitle': '1. Build an electron configuration',
-        'fillbody': 'Place electrons one at a time. Read orbital boxes, compare shell totals, and see Aufbau, Hund’s rule and Pauli pairing in action. The filling lesson currently covers hydrogen to calcium.',
+        'fillbody': 'Place electrons one at a time. Read orbital boxes, compare shell totals, and see Aufbau, Hund’s rule and Pauli pairing in action. The filling lesson covers all 118 elements, including d and f subshells.',
         'fillcta': 'Open the filling animation',
         'orbtitle': '2. See the shape of an orbital',
         'orbbody': 'Open the viewer and choose hydrogen orbitals. Rotate the probability cloud to see lobes and nodes from different angles. Quantum numbers describe the state; the point cloud shows its spatial distribution.',
@@ -105,7 +107,7 @@ CONTENT = {
         'caption': 'Carbonio: una nuvola di probabilità elettronica campionata dal visualizzatore del progetto.',
         'journey': 'Tre percorsi per esplorare la struttura atomica',
         'filltitle': '1. Costruisci una configurazione elettronica',
-        'fillbody': 'Inserisci gli elettroni uno alla volta. Leggi i diagrammi degli orbitali, confronta i totali per guscio e osserva Aufbau, Hund e Pauli. La lezione sul riempimento copre attualmente gli elementi dall’idrogeno al calcio.',
+        'fillbody': 'Inserisci gli elettroni uno alla volta. Leggi i diagrammi degli orbitali, confronta i totali per guscio e osserva Aufbau, Hund e Pauli. La lezione sul riempimento copre tutti i 118 elementi, inclusi i sottolivelli d e f.',
         'fillcta': 'Apri l’animazione del riempimento',
         'orbtitle': '2. Osserva la forma di un orbitale',
         'orbbody': 'Apri il visualizzatore e scegli gli orbitali dell’idrogeno. Ruota la nuvola di probabilità per osservare lobi e nodi da diversi angoli. I numeri quantici descrivono lo stato; i punti ne mostrano la distribuzione spaziale.',
@@ -175,7 +177,7 @@ def portal(language):
 <a class="skip" href="#explore">{'Vai ai percorsi' if language == 'it' else 'Skip to learning paths'}</a>
 <header><a class="brand" href="{prefix}index.html">ATOM CUBE <span>FabLab Bergamo</span></a><nav aria-label="{'Navigazione principale' if language == 'it' else 'Main navigation'}"><a href="#explore">{c['nav']}</a><a href="{other}" lang="{other_language}" hreflang="{other_language}">{c['language']}</a></nav></header>
 <main>
-<section class="hero"><div><p class="eyebrow">{c['label']}</p><h1>{c['heading']}</h1><p class="intro">{c['intro']}</p><div class="actions"><a class="button" href="{filling}">{c['start']} →</a><a class="secondary" href="{viewer}">{c['view']}</a></div></div><figure><img src="{prefix}img/atom_C.png" alt="{c['caption']}" width="480" height="480" fetchpriority="high"><figcaption>{c['caption']}</figcaption></figure></section>
+<section class="hero"><div><p class="eyebrow">{c['label']}</p><h1>{c['heading']}</h1><p class="intro">{c['intro']}</p><div class="actions"><a class="button" href="{filling}">{c['start']} →</a><a class="secondary" href="{viewer}">{c['view']}</a></div></div><figure><div class="portal-atom"><img id="portal-atom-fallback" src="{prefix}img/atom_C.png" alt="{c['caption']}" width="480" height="480" fetchpriority="high"><canvas id="portal-atom" width="480" height="480" role="img" aria-label="{c['caption']}" hidden></canvas></div><button id="portal-rotation" aria-pressed="true" hidden>{"Ferma la rotazione" if language == "it" else "Pause rotation"}</button><figcaption>{c['caption']}</figcaption></figure></section>
 <section id="explore"><p class="eyebrow">{'OSSERVA · CONFRONTA · COMPRENDI' if language == 'it' else 'OBSERVE · COMPARE · UNDERSTAND'}</p><h2>{c['journey']}</h2><div class="paths">{cards}</div></section>
 <section class="concepts"><h2>{c['terms']}</h2><div class="table-wrap"><table><thead><tr>{''.join(f'<th scope="col">{head}</th>' for head in c['tableheads'])}</tr></thead><tbody>{rows}</tbody></table></div><p>{c['order']}</p></section>
 <section><h2>{c['examples']}</h2><ul class="examples">{examples}</ul></section>
@@ -183,6 +185,8 @@ def portal(language):
 <section class="faq"><h2>{c['faq']}</h2>{questions}</section>
 </main>
 <footer><a href="https://github.com/fablab-bergamo/electron-3d-display">{c['source']} →</a></footer>
+<script src="{prefix}web/portal_atom_points.js"></script>
+<script src="{prefix}web/portal_atom.js"></script>
 </body>
 </html>
 '''
